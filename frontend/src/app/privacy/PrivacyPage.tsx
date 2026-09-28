@@ -1,5 +1,7 @@
 import { Shield, Clock, Trash2, Users } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { CardFeatureMedia, CardForestPanel } from '@/components/ui';
 
@@ -28,9 +30,28 @@ const privacyPoints = [
 
 export function PrivacyPage() {
   useDocumentTitle('Data & Privacy');
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <PageContainer width="narrow">
+        <div className="mb-6">
+          {isAuthenticated ? (
+            <button
+              onClick={() => navigate(-1)}
+              className="text-sm font-semibold text-accent-blue hover:underline"
+            >
+              ← Back
+            </button>
+          ) : (
+            <Link
+              to="/login"
+              className="text-sm font-semibold text-accent-blue hover:underline"
+            >
+              ← Back to Login
+            </Link>
+          )}
+        </div>
         <div className="mb-10 max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-wider text-text-tertiary">
             Privacy

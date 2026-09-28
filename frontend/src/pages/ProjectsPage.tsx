@@ -11,7 +11,6 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { Avatar, getInitials } from '@/components/ui/Avatar';
 import { getMemberColor } from '@/utils/memberColors';
 import { ButtonPrimaryHero, ButtonGlassUtility, ButtonNavCta } from '@/components/ui';
-import { JoinByCodeModal } from '@/components/project/JoinByCodeModal';
 import { cn } from '@/lib/utils';
 import type { ProjectSummary, ProjectMember } from '@/types';
 
@@ -41,9 +40,64 @@ function matchesFilter(project: ProjectSummary, filter: FilterKey) {
   return project.status === 'active';
 }
 
+function InlineJoinInput({ primary = false, onJoin }: { primary?: boolean; onJoin?: (p: ProjectSummary) => void }) {
+  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(false);
+  const [code, setCode] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleJoin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim()) return;
+    setIsJoining(true);
+    setError('');
+    try {
+      const project = await api.joinByCode(code);
+      if (onJoin) onJoin(project);
+      navigate(`/projects/${project.id}/dashboard`);
+    } catch {
+      setError('Invalid code');
+      setIsJoining(false);
+    }
+  };
+
+  if (!isOpen) {
+    const ButtonComponent = primary ? ButtonPrimaryHero : ButtonGlassUtility;
+    return (
+      <ButtonComponent onClick={() => setIsOpen(true)}>
+        Join with a code
+      </ButtonComponent>
+    );
+  }
+
+  return (
+    <form onSubmit={handleJoin} className="relative flex items-center gap-2">
+      <input
+        autoFocus
+        type="text"
+        value={code}
+        onChange={(e) => {
+          setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''));
+          setError('');
+        }}
+        placeholder="e.g. TL-4829"
+        className="h-10 w-32 rounded-control border border-black/10 bg-white px-3 text-sm text-text-primary outline-none focus:border-accent-lime md:w-40"
+      />
+      <ButtonPrimaryHero type="submit" disabled={isJoining || !code.trim()}>
+        {isJoining ? '...' : 'Join'}
+      </ButtonPrimaryHero>
+      <button type="button" onClick={() => setIsOpen(false)} className="px-1 text-sm text-text-tertiary hover:text-text-primary">
+        Cancel
+      </button>
+      {error && <span className="absolute -bottom-5 left-1 text-xs font-semibold text-accent-warning">{error}</span>}
+    </form>
+  );
+}
+
 // ─── Segmented contribution bar ───────────────────────────────────────────────
 
-function ContributionBar({ project, currentUserId }: { project: ProjectSummary; currentUserId?: string }) {
+function ContributionBar({ project, currentUserId, mini = false }: { project: ProjectSummary; currentUserId?: string; mini?: boolean }) {
   const segments = useMemo(() => {
     const { members } = project;
     if (!members.length) return [];
@@ -66,6 +120,16 @@ function ContributionBar({ project, currentUserId }: { project: ProjectSummary; 
   }, [project, currentUserId]);
 
   const yourShare = project.userContributionShare ?? 0;
+
+  if (mini) {
+    return (
+      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
+        {segments.map(({ id, share, color, name }) => (
+          <div key={id} className="h-full" style={{ width: `${share}%`, backgroundColor: color }} title={`${name}: ${Math.round(share)}%`} />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1.5">
@@ -170,8 +234,9 @@ function ProjectCard({ project, currentUserId, isNew, onClick }: {
 
 // ─── Compact list row (list view) ─────────────────────────────────────────────
 
-function ProjectRow({ project, onClick }: {
+function ProjectRow({ project, currentUserId, onClick }: {
   project: ProjectSummary;
+  currentUserId?: string;
   onClick: () => void;
 }) {
   const deadline = formatDeadline(project.deadline);
@@ -197,12 +262,7 @@ function ProjectRow({ project, onClick }: {
 
       {/* Mini bar */}
       <div className="hidden w-24 md:block">
-        <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
-          {project.members.map((m, i) => {
-            const share = project.members.length > 0 ? 100 / project.members.length : 0;
-            return <div key={m.id} className="h-full" style={{ width: `${share}%`, backgroundColor: getMemberColor(i) }} />;
-          })}
-        </div>
+        <ContributionBar project={project} currentUserId={currentUserId} mini />
       </div>
 
       {/* Your share */}
@@ -327,7 +387,6 @@ export function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isNewOpen, setIsNewOpen] = useState(false);
-  const [isJoinOpen, setIsJoinOpen] = useState(false);
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<FilterKey>('all');
   const [view, setView] = useState<'grid' | 'list'>(() => {
@@ -377,9 +436,7 @@ export function ProjectsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <ButtonGlassUtility onClick={() => setIsJoinOpen(true)}>
-            Join with a code
-          </ButtonGlassUtility>
+          <InlineJoinInput onJoin={(project) => setProjects(prev => [project, ...prev])} />
           <ButtonNavCta onClick={() => setIsNewOpen(true)}>
             <Plus size={16} />
             New project
@@ -454,8 +511,12 @@ export function ProjectsPage() {
               : 'Try a different filter or create a new project.'}
           </p>
           <div className="mt-6 flex gap-3">
-            <ButtonGlassUtility onClick={() => setIsJoinOpen(true)}>Join with a code</ButtonGlassUtility>
-            <ButtonPrimaryHero onClick={() => setIsNewOpen(true)}>Create a project</ButtonPrimaryHero>
+            <InlineJoinInput primary={!isTeacher} />
+            {isTeacher ? (
+              <ButtonPrimaryHero onClick={() => setIsNewOpen(true)}>Create a project</ButtonPrimaryHero>
+            ) : (
+              <ButtonGlassUtility onClick={() => setIsNewOpen(true)}>Create a project</ButtonGlassUtility>
+            )}
           </div>
         </div>
       ) : view === 'grid' ? (
@@ -476,6 +537,7 @@ export function ProjectsPage() {
             <ProjectRow
               key={project.id}
               project={project}
+              currentUserId={currentUser?.id}
               onClick={() => navigate(`/projects/${project.id}/dashboard`)}
             />
           ))}
@@ -484,7 +546,6 @@ export function ProjectsPage() {
 
       {/* Modals */}
       <NewProjectModal isOpen={isNewOpen} onClose={() => setIsNewOpen(false)} onCreate={handleCreate} />
-      <JoinByCodeModal isOpen={isJoinOpen} onClose={() => setIsJoinOpen(false)} />
     </PageContainer>
   );
 }

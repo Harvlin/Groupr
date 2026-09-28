@@ -96,6 +96,10 @@ export const api = {
   },
 
   async finaliseProject(projectId: string): Promise<{ projectId: string; status: string }> {
+    // Mutate the mock arrays so subsequent reads from api.getProjects() / api.getProject() reflect the new status
+    const summary = mockProjects.find((p) => p.id === projectId);
+    if (summary) summary.status = 'finalised';
+    if (project.id === projectId) (project as { status: string }).status = 'finalised';
     return delay({ projectId, status: 'finalised' }, 600);
   },
 
@@ -166,12 +170,22 @@ export const api = {
   },
 
   async getInvitationByToken(token: string): Promise<Invitation> {
+    if (token === 'already_member') throw { reason: 'already_member' };
+    if (token === 'token_used') throw { reason: 'token_used' };
+    if (token === 'project_full') throw { reason: 'project_full' };
+    if (token === 'expired') throw { reason: 'expired' };
+
     const found = mockInvitations.find((i) => i.token === token);
-    if (!found) throw new Error('Invitation not found or expired');
+    if (!found) throw { reason: 'expired' };
     return delay(found, 400);
   },
 
   async acceptInvitation(token: string): Promise<{ token: string; status: string }> {
+    if (token === 'already_member') throw { reason: 'already_member' };
+    if (token === 'token_used') throw { reason: 'token_used' };
+    if (token === 'project_full') throw { reason: 'project_full' };
+    if (token === 'expired') throw { reason: 'expired' };
+
     return delay({ token, status: 'accepted' }, 700);
   },
 
@@ -265,6 +279,11 @@ export const api = {
   },
 
   // ─── Disputes ───────────────────────────────────────────────────────────────
+  async getDisputes(_projectId: string): Promise<Dispute[]> {
+    // Returns from the same underlying array as getTeacherReport, ensuring consistency
+    return delay(disputes, 300);
+  },
+
   async submitDispute(reason: string): Promise<Dispute> {
     const newDispute: Dispute = {
       id: `d-${Date.now()}`,

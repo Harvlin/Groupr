@@ -228,6 +228,7 @@ export const dashboardData: DashboardData = {
   },
   sessionCount: 12,
   teamAverage: 25,
+  hasPendingDispute: true,
 };
 
 export const events: ContributionEvent[] = [

@@ -8,9 +8,7 @@ import {
   ListChecks,
   Link2,
   MessageSquareWarning,
-  ShieldCheck,
   Settings,
-  Bell,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -21,8 +19,8 @@ import {
   X,
 } from 'lucide-react';
 import { Avatar, getInitials } from '@/components/ui/Avatar';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { useAuth } from '@/hooks/useAuth';
-import { useNotifications } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import { useOptionalProject } from '@/hooks/useProject';
 
@@ -32,6 +30,7 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
+  badge?: number | string;
 }
 
 interface AppSidebarProps {
@@ -68,6 +67,11 @@ function SidebarNavItem({
       >
         <Icon size={20} className="shrink-0" />
         {!collapsed && <span>{item.label}</span>}
+        {!collapsed && item.badge !== undefined && (
+          <span className="ml-auto rounded-full bg-accent-lime/20 px-2 py-0.5 text-[10px] font-bold text-accent-lime">
+            {item.badge}
+          </span>
+        )}
       </Link>
     </li>
   );
@@ -81,7 +85,6 @@ export function AppSidebar({ mode, isMobileOpen, onMobileOpenChange }: AppSideba
   const location = useLocation();
   const { projectId } = useParams<{ projectId?: string }>();
   const { currentUser, logout } = useAuth();
-  const { notifications } = useNotifications();
   const projectContext = useOptionalProject();
   const project = projectContext?.project;
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -94,8 +97,6 @@ export function AppSidebar({ mode, isMobileOpen, onMobileOpenChange }: AppSideba
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
-
   // Persist collapsed state
   useEffect(() => {
     try {
@@ -103,15 +104,22 @@ export function AppSidebar({ mode, isMobileOpen, onMobileOpenChange }: AppSideba
     } catch { /* ignore */ }
   }, [collapsed]);
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click or Escape
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
       }
     }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setDropdownOpen(false);
+    }
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   // Close mobile drawer on Escape
@@ -133,15 +141,16 @@ export function AppSidebar({ mode, isMobileOpen, onMobileOpenChange }: AppSideba
       : []),
   ];
 
+  const openTaskCount = projectContext?.tasks?.filter((t) => t.status === 'open' || t.status === 'in_progress').length ?? 0;
+
   const projectItems: NavItem[] = projectId
     ? [
         { label: 'Dashboard', href: `/projects/${projectId}/dashboard`, icon: LayoutDashboard },
         { label: 'Team', href: `/projects/${projectId}/team`, icon: Users },
         { label: 'Coach', href: `/projects/${projectId}/coach`, icon: Compass },
-        { label: 'Tasks', href: `/projects/${projectId}/tasks`, icon: ListChecks },
+        { label: 'Tasks', href: `/projects/${projectId}/tasks`, icon: ListChecks, badge: openTaskCount > 0 ? openTaskCount : undefined },
         { label: 'Sources', href: `/projects/${projectId}/sources`, icon: Link2 },
         { label: 'Disputes', href: `/projects/${projectId}/disputes`, icon: MessageSquareWarning },
-        { label: 'AI Disclosure', href: `/projects/${projectId}/ai-disclosure`, icon: ShieldCheck },
       ]
     : [];
 
@@ -191,19 +200,31 @@ export function AppSidebar({ mode, isMobileOpen, onMobileOpenChange }: AppSideba
       {/* Nav body */}
       <nav aria-label="Main navigation" className="flex-1 overflow-y-auto px-3 py-4">
         {/* Project mode: back link + project name */}
-        {mode === 'project' && !collapsed && (
+        {mode === 'project' && (
           <div className="mb-4">
-            <Link
-              to="/projects"
-              className="flex items-center gap-1.5 text-body-sm text-text-secondary transition-colors hover:text-text-primary"
-            >
-              <ChevronLeft size={14} />
-              All projects
-            </Link>
+            {!collapsed && (
+              <Link
+                to="/projects"
+                className="flex items-center gap-1.5 text-body-sm text-text-secondary transition-colors hover:text-text-primary"
+              >
+                <ChevronLeft size={14} />
+                All projects
+              </Link>
+            )}
             {project && (
-              <p className="mt-3 mb-1 truncate px-1 text-[11px] font-semibold uppercase tracking-widest text-text-tertiary">
-                {project.name}
-              </p>
+              <div 
+                className={cn("mt-3", collapsed && "flex justify-center")}
+                title={collapsed ? project.name : undefined}
+              >
+                <p 
+                  className={cn(
+                    "mb-1 truncate font-semibold uppercase tracking-widest text-text-tertiary",
+                    collapsed ? "flex h-8 w-8 items-center justify-center rounded-control bg-surface-muted text-[11px] cursor-default" : "px-1 text-[11px]"
+                  )}
+                >
+                  {collapsed ? project.name.substring(0, 2).toUpperCase() : project.name}
+                </p>
+              </div>
             )}
           </div>
         )}
@@ -245,55 +266,41 @@ export function AppSidebar({ mode, isMobileOpen, onMobileOpenChange }: AppSideba
       >
         {/* Notification bell (collapsed: standalone; expanded: inline) */}
         {collapsed ? (
-          <button
-            aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
-            className="relative flex h-9 w-9 items-center justify-center rounded-control text-text-secondary transition-colors hover:bg-surface-muted hover:text-text-primary"
-          >
-            <Bell size={18} />
-            {unreadCount > 0 && (
-              <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent-warning text-[9px] font-bold text-white">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center justify-center p-1">
+            <NotificationBell />
+          </div>
         ) : null}
 
         {/* User row */}
-        <button
-          onClick={() => setDropdownOpen((o) => !o)}
-          aria-label="User menu"
-          aria-expanded={dropdownOpen}
-          className={cn(
-            'flex w-full items-center gap-3 rounded-control p-2 text-left transition-colors hover:bg-surface-muted',
-            collapsed && 'justify-center'
-          )}
-        >
-          <Avatar initials={initials} size={32} colorIndex={0} title={currentUser?.name} />
+        <div className={cn('flex w-full items-center gap-1 text-left', collapsed && 'flex-col justify-center')}>
+          <button
+            onClick={() => setDropdownOpen((o) => !o)}
+            aria-label="User menu"
+            aria-expanded={dropdownOpen}
+            className={cn(
+              'flex flex-1 items-center gap-3 rounded-control p-2 text-left transition-colors hover:bg-surface-muted',
+              collapsed && 'justify-center w-full'
+            )}
+          >
+            <Avatar initials={initials} size={32} colorIndex={0} title={currentUser?.name} />
+            {!collapsed && (
+              <>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-body-sm font-semibold text-text-primary leading-tight">
+                    {currentUser?.name ?? 'User'}
+                  </p>
+                  <p className="text-label-sm text-text-tertiary capitalize">{currentUser?.role ?? 'student'}</p>
+                </div>
+                <ChevronDown size={14} className="shrink-0 text-text-tertiary" />
+              </>
+            )}
+          </button>
           {!collapsed && (
-            <>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-body-sm font-semibold text-text-primary leading-tight">
-                  {currentUser?.name ?? 'User'}
-                </p>
-                <p className="text-label-sm text-text-tertiary capitalize">{currentUser?.role ?? 'student'}</p>
-              </div>
-              {/* Notification bell inline */}
-              <button
-                aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
-                className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-text-tertiary transition-colors hover:bg-black/[0.04] hover:text-text-primary"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Bell size={16} />
-                {unreadCount > 0 && (
-                  <span className="absolute right-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent-warning text-[8px] font-bold text-white">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-              <ChevronDown size={14} className="shrink-0 text-text-tertiary" />
-            </>
+            <div className="shrink-0 pr-1">
+              <NotificationBell />
+            </div>
           )}
-        </button>
+        </div>
 
         {/* Dropdown menu */}
         <AnimatePresence>

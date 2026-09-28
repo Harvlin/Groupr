@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/Skeleton';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { api } from '@/services/api';
 import { getSuggestionCopy } from '@/utils/coachSuggestionCopy';
+import { useToast } from '@/hooks/useToast';
 import type { CoachSuggestion } from '@/types';
 
 
@@ -44,7 +45,10 @@ export function CoachModePage() {
     }
     return ids;
   });
+  const [creatingTaskForId, setCreatingTaskForId] = useState<string | null>(null);
+  const [createdTaskIds, setCreatedTaskIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const { addToast } = useToast();
 
   useEffect(() => {
     if (!projectId) return;
@@ -72,6 +76,29 @@ export function CoachModePage() {
 
   const handleDismiss = (id: string) => {
     setDismissedIds((prev) => new Set([...prev, id]));
+  };
+
+  const handleCreateTask = async (suggestion: CoachSuggestion) => {
+    if (!projectId) return;
+    setCreatingTaskForId(suggestion.id);
+    try {
+      await api.createTask({
+        projectId,
+        title: suggestion.specificTask,
+        assignedToMemberId: suggestion.memberId,
+        assignedToMemberName: suggestion.memberName,
+        status: 'open',
+        createdByMemberId: '',
+        dueDate: undefined,
+        fromCoachSuggestion: true,
+      });
+      setCreatedTaskIds((prev) => new Set([...prev, suggestion.id]));
+      addToast(`Task created for ${suggestion.memberName}.`, 'success');
+    } catch {
+      addToast('Failed to create task. Please try again.', 'error');
+    } finally {
+      setCreatingTaskForId(null);
+    }
   };
 
   return (
@@ -199,6 +226,18 @@ export function CoachModePage() {
                         >
                           Mark as discussed
                         </ButtonGlassUtility>
+                      )}
+
+                      {createdTaskIds.has(suggestion.id) ? (
+                        <span className="font-body text-[13px] font-semibold text-accent-lime">✓ Task created</span>
+                      ) : (
+                        <button
+                          onClick={() => handleCreateTask(suggestion)}
+                          disabled={creatingTaskForId === suggestion.id}
+                          className="font-body text-[13px] font-medium text-text-secondary transition-colors hover:text-text-primary disabled:opacity-50"
+                        >
+                          {creatingTaskForId === suggestion.id ? 'Creating…' : 'Create task'}
+                        </button>
                       )}
 
                       <button

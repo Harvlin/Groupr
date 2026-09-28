@@ -17,15 +17,29 @@ function AvatarCircle({ initials, size = 48 }: { initials: string; size?: number
   );
 }
 
-function ErrorState() {
+function ErrorState({ reason }: { reason: string }) {
+  let title = 'This invitation has expired';
+  let desc = 'Ask your team leader to send a new invitation.';
+  
+  if (reason === 'already_member') {
+    title = 'You are already a member';
+    desc = 'You have already joined this project.';
+  } else if (reason === 'token_used') {
+    title = 'Invitation already used';
+    desc = 'This invitation link has already been claimed by someone else.';
+  } else if (reason === 'project_full') {
+    title = 'Project is full';
+    desc = 'This project has reached the maximum number of members.';
+  }
+
   return (
     <div className="flex flex-col items-center text-center">
       <svg width="64" height="64" viewBox="0 0 64 64" fill="none" className="text-text-tertiary">
         <path d="M16 32h8M40 32h8M24 24l-4-4-4 4M44 24l4-4 4 4M24 40l-4 4-4-4M44 40l4 4 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
         <rect x="20" y="28" width="24" height="8" rx="2" stroke="currentColor" strokeWidth="2"/>
       </svg>
-      <h1 className="mt-4 text-xl font-semibold text-text-primary">This invitation has expired</h1>
-      <p className="mt-2 text-base text-text-secondary">Ask your team leader to send a new invitation.</p>
+      <h1 className="mt-4 text-xl font-semibold text-text-primary">{title}</h1>
+      <p className="mt-2 text-base text-text-secondary">{desc}</p>
       <Link to="/projects" className="mt-6 inline-flex h-10 items-center rounded-control bg-accent-lime px-6 font-semibold text-text-primary hover:bg-[#80E142]">
         Go to your projects
       </Link>
@@ -39,23 +53,29 @@ export default function InvitationPage() {
   const navigate = useNavigate();
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [errorReason, setErrorReason] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
   const [declining, setDeclining] = useState(false);
 
   useEffect(() => {
-    if (!token) { setError(true); setLoading(false); return; }
+    if (!token) { setErrorReason('expired'); setLoading(false); return; }
     api.getInvitationByToken(token)
       .then(setInvitation)
-      .catch(() => setError(true))
+      .catch((err) => setErrorReason(err?.reason || 'expired'))
       .finally(() => setLoading(false));
   }, [token]);
 
   const handleAccept = async () => {
     if (!token || !invitation) return;
     setAccepting(true);
-    await api.acceptInvitation(token);
-    navigate(`/projects/${invitation.projectId}/dashboard`);
+    try {
+      await api.acceptInvitation(token);
+      navigate(`/projects/${invitation.projectId}/dashboard`, { state: { needsConsent: true } });
+    } catch (err: any) {
+      setErrorReason(err?.reason || 'expired');
+    } finally {
+      setAccepting(false);
+    }
   };
 
   const handleDecline = async () => {
@@ -76,8 +96,8 @@ export default function InvitationPage() {
               <Skeleton className="h-8 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : error || !invitation ? (
-            <ErrorState />
+          ) : errorReason || !invitation ? (
+            <ErrorState reason={errorReason || 'expired'} />
           ) : (
             <>
               {/* Wordmark */}

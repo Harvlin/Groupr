@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { api } from '@/services/api';
 import { cn } from '@/lib/utils';
+import { getInitials } from '@/components/ui/Avatar';
 
 const GRADES = [
   'Grade 10',
@@ -48,19 +49,11 @@ export function OnboardingPage() {
     },
   ]);
   const [finishError, setFinishError] = useState('');
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState('');
 
   const inviteToken = (location.state as any)?.inviteToken;
 
-  const getInitials = (fullName?: string) => {
-    if (!fullName) return '';
-    return fullName
-      .split(' ')
-      .map((n) => n[0])
-      .filter(Boolean)
-      .slice(0, 2)
-      .join('')
-      .toUpperCase();
-  };
 
   const handleStep1Continue = () => {
     if (inviteToken) {
@@ -77,12 +70,20 @@ export function OnboardingPage() {
         ? projectCode.trim()
         : false;
 
-  const handleStep2Continue = () => {
+  const handleStep2Continue = async () => {
     if (!canContinueStep2) return;
     if (mode === 'create') {
       setStep(3);
     } else {
-      navigate('/projects');
+      setJoining(true);
+      setJoinError('');
+      try {
+        await api.joinByCode(projectCode.trim());
+        navigate('/projects');
+      } catch {
+        setJoinError('Invalid project code — please check and try again.');
+        setJoining(false);
+      }
     }
   };
 
@@ -158,7 +159,7 @@ export function OnboardingPage() {
           <div className="mt-8 space-y-5">
             <div className="flex flex-col items-center gap-4 sm:flex-row">
               <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-accent-lime font-display text-2xl text-surface-forest">
-                {getInitials(currentUser?.name)}
+                {getInitials(currentUser?.name ?? '')}
               </div>
               <div className="w-full space-y-4">
                 <div>
@@ -335,20 +336,26 @@ export function OnboardingPage() {
                   id="projectCode"
                   type="text"
                   value={projectCode}
-                  onChange={(e) => setProjectCode(e.target.value)}
+                  onChange={(e) => {
+                    setProjectCode(e.target.value);
+                    setJoinError('');
+                  }}
                   placeholder="e.g. BIO-2026"
                   className="mt-1.5 block w-full rounded-control border border-black/10 bg-white px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-lime focus:outline-none"
                 />
+                {joinError && (
+                  <p className="mt-2 text-sm font-medium text-accent-warning">{joinError}</p>
+                )}
               </div>
             )}
 
             <ButtonPrimaryHero
               type="button"
               className="w-full"
-              disabled={!canContinueStep2}
+              disabled={!canContinueStep2 || joining}
               onClick={handleStep2Continue}
             >
-              Continue
+              {joining ? 'Joining…' : 'Continue'}
             </ButtonPrimaryHero>
 
             <button

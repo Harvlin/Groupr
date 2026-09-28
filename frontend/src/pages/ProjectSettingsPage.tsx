@@ -6,7 +6,7 @@ import { useProject } from '@/hooks/useProject';
 import { useToast } from '@/hooks/useToast';
 import { ButtonPrimaryHero, ButtonGlassUtility, ButtonNavCta } from '@/components/ui';
 import { Skeleton } from '@/components/Skeleton';
-import type { MemberConsent, ProjectExtended } from '@/types';
+import type { ProjectExtended } from '@/types';
 import { cn } from '@/lib/utils';
 
 function Section({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
@@ -30,7 +30,7 @@ function InputField({ label, id, ...props }: React.InputHTMLAttributes<HTMLInput
 
 export default function ProjectSettingsPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { project, members } = useProject();
+  const { project, members, memberConsents, isLoading: isProjectLoading } = useProject();
   const { addToast } = useToast();
   const navigate = useNavigate();
 
@@ -42,8 +42,8 @@ export default function ProjectSettingsPage() {
   });
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [consents, setConsents] = useState<MemberConsent[]>([]);
-  const [consentLoading, setConsentLoading] = useState(true);
+  const consents = memberConsents;
+  const consentLoading = isProjectLoading;
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
   const [allowOfflineLog, setAllowOfflineLog] = useState(true);
@@ -64,10 +64,7 @@ export default function ProjectSettingsPage() {
     }
   }, [project]);
 
-  useEffect(() => {
-    if (!projectId) return;
-    api.getMemberConsents(projectId).then(setConsents).finally(() => setConsentLoading(false));
-  }, [projectId]);
+  // Consents are now fetched centrally in ProjectContext (fix 4.4)
 
   const updateForm = (key: string, value: string) => {
     setForm(f => ({ ...f, [key]: value }));

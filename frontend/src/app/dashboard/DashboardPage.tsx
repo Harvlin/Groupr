@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 import { Clock, Users, MessageSquareWarning, AlertCircle } from 'lucide-react';
 import { DashboardSkeleton } from '@/components/Skeleton';
@@ -15,15 +16,42 @@ import { CategoryChart } from '@/components/charts/CategoryChart';
 import { BucketTimeline } from '@/components/charts/BucketTimeline';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { api } from '@/services/api';
-import { scores } from '@/data/mock';
+import { ConsentModal } from '@/components/project/ConsentModal';
+import { getMemberColor } from '@/utils/memberColors';
 import type { DashboardData } from '@/types';
 
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const { project, currentMember } = useProject();
+  const { project, currentMember, disputes } = useProject();
   const navigate = useNavigate();
+  const location = useLocation();
   useDocumentTitle('Dashboard');
+
+  const [showConsentModal, setShowConsentModal] = useState(false);
+
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.needsConsent) {
+      setShowConsentModal(true);
+      window.history.replaceState({}, '', location.pathname);
+    } else {
+      // Fallback heuristic
+      if (project?.id) {
+        const hasSeen = localStorage.getItem(`tl-consent-seen-${project.id}`);
+        if (!hasSeen) {
+          setShowConsentModal(true);
+        }
+      }
+    }
+  }, [location.state, location.pathname, project?.id]);
+
+  const handleConsentClose = () => {
+    setShowConsentModal(false);
+    if (project?.id) {
+      localStorage.setItem(`tl-consent-seen-${project.id}`, '1');
+    }
+  };
 
   useEffect(() => {
     api.getDashboard().then((result) => {
@@ -32,10 +60,19 @@ export function DashboardPage() {
     });
   }, []);
 
-  const maxScore = useMemo(
-    () => Math.max(...scores.map((s) => s.finalPercentage), 1),
-    []
-  );
+  const { maxScore, otherShare } = useMemo(() => {
+    if (!data) return { maxScore: 1, otherShare: 0 };
+    const othersCount = data.members.length - 1;
+    const share = othersCount > 0 ? (100 - data.score.finalPercentage) / othersCount : 0;
+    return {
+      maxScore: Math.max(data.score.finalPercentage, share, 1),
+      otherShare: share
+    };
+  }, [data]);
+
+  const [aiDisclosureDismissed, setAiDisclosureDismissed] = useState(false);
+  // TODO: Replace with actual check for AI-flagged events in project data
+  const hasAiFlags = data ? data.score.rationale.flags.length > 0 : false;
 
   const bucketTotal = useMemo(
     () => data ? Object.values(data.bucketBreakdown).reduce((a, b) => a + b, 0) : 0,
@@ -43,8 +80,10 @@ export function DashboardPage() {
   );
   const showLateWarning = data ? data.bucketBreakdown.late > bucketTotal / 2 : false;
 
-  const showDisputePill =
-    data?.project.id === 'project1' && currentMember?.user.id === 'u-4';
+  // Derived from context disputes — reactive across all pages (fixes 2.7, 3.10, 4.11)
+  const showDisputePill = disputes.some(
+    (d) => d.status === 'open' && d.userId === currentMember?.userId
+  );
 
   const isFinalized = project?.status === 'completed';
 
@@ -111,6 +150,31 @@ export function DashboardPage() {
           </motion.div>
         )}
 
+        {hasAiFlags && !aiDisclosureDismissed && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 flex items-start justify-between gap-3 rounded-card bg-surface-muted p-4"
+          >
+            <div className="flex items-start gap-3">
+              <AlertCircle size={20} className="mt-0.5 shrink-0 text-text-secondary" />
+              <div>
+                <p className="font-semibold text-text-primary">AI usage detected</p>
+                <p className="text-sm text-text-secondary">
+                  Some contributions have been flagged as possibly AI-generated.
+                  <button onClick={() => navigate(`/projects/${project?.id}/ai-disclosure`)} className="ml-2 font-semibold text-accent-blue hover:underline">
+                    View disclosure →
+                  </button>
+                </p>
+              </div>
+            </div>
+            <button onClick={() => setAiDisclosureDismissed(true)} className="text-text-tertiary hover:text-text-primary">
+              <span className="sr-only">Dismiss</span>
+              ×
+            </button>
+          </motion.div>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-3">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -126,21 +190,32 @@ export function DashboardPage() {
                 <div className="flex flex-col items-end">
                   <StatusBadge level={data.score.confidenceLevel} />
                   <p className="mt-1 text-xs text-text-tertiary">
-                    Score last updated · 4 min ago
+                    Score last updated · {formatDistanceToNow(new Date(data.score.computedAt), { addSuffix: true })}
                   </p>
                 </div>
               </div>
-              <div className="flex flex-1 flex-col items-center justify-center py-6">
-                <span
-                  className="font-display text-data-numeral text-text-primary"
-                  style={{ lineHeight: 0.9 }}
-                >
-                  {data.score.finalPercentage}%
-                </span>
-                <p className="mt-2 text-sm text-text-secondary">
-                  of the project
-                </p>
-              </div>
+              {data.score.finalPercentage === 0 && data.project.sourceCount === 0 ? (
+                <div className="flex flex-1 flex-col items-center justify-center py-6">
+                  <p className="mb-4 text-sm text-text-secondary px-4">
+                    No score yet — connect a source to start tracking your contribution.
+                  </p>
+                  <ButtonPrimaryHero onClick={() => navigate(`/projects/${project?.id}/sources`)}>
+                    Connect a source
+                  </ButtonPrimaryHero>
+                </div>
+              ) : (
+                <div className="flex flex-1 flex-col items-center justify-center py-6">
+                  <span
+                    className="font-display text-data-numeral text-text-primary"
+                    style={{ lineHeight: 0.9 }}
+                  >
+                    {data.score.finalPercentage}%
+                  </span>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    of the project
+                  </p>
+                </div>
+              )}
               <div className="w-full rounded-control bg-surface-muted px-4 py-3">
                 <p className="text-sm text-text-secondary">
                   Team average:{' '}
@@ -163,12 +238,11 @@ export function DashboardPage() {
                 Your score vs team
               </h2>
               <div className="mt-4 flex flex-1 flex-col justify-center gap-3">
-                {data.members.map((member) => {
-                  const memberScore = scores.find((s) => s.userId === member.userId);
-                  const width = memberScore
-                    ? `${(memberScore.finalPercentage / maxScore) * 100}%`
-                    : '0%';
+                {data.members.map((member, index) => {
                   const isCurrent = currentMember?.user.id === member.userId;
+                  const percentage = isCurrent ? data.score.finalPercentage : otherShare;
+                  const width = `${(percentage / maxScore) * 100}%`;
+                  const color = getMemberColor(index);
                   return (
                     <button
                       key={member.userId}
@@ -181,9 +255,9 @@ export function DashboardPage() {
                       <div className="flex-1 rounded-control bg-surface-muted">
                         <div
                           className={`h-2 rounded-control transition-all duration-500 ${
-                            isCurrent ? 'bg-accent-lime' : 'bg-surface-muted'
+                            isCurrent ? '' : 'opacity-60'
                           }`}
-                          style={{ width }}
+                          style={{ width, backgroundColor: color }}
                         />
                       </div>
                     </button>
@@ -311,6 +385,7 @@ export function DashboardPage() {
           </motion.div>
         </div>
       </div>
+      {showConsentModal && <ConsentModal onClose={handleConsentClose} />}
     </PageContainer>
   );
 }

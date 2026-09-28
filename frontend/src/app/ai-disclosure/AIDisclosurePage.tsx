@@ -9,6 +9,7 @@ import {
 } from '@/components/ui';
 import { api } from '@/services/api';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { Skeleton } from '@/components/Skeleton';
 import type { ContributionEvent } from '@/types';
 
 const categoryLabels = {
@@ -22,12 +23,14 @@ const categoryLabels = {
 
 export function AIDisclosurePage() {
   const [events, setEvents] = useState<ContributionEvent[]>([]);
+  const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
   useDocumentTitle('AI Disclosure');
 
   useEffect(() => {
     api.getTeacherReport().then((data) => {
       setEvents(data.events.filter((e) => e.possiblyAiGenerated));
+      setLoading(false);
     });
   }, []);
 
@@ -70,7 +73,22 @@ export function AIDisclosurePage() {
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-4">
-            {events.length === 0 ? (
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2].map((i) => (
+                  <CardFeatureMedia key={i} className="p-5">
+                    <div className="mb-3 flex items-center gap-3">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div>
+                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="mt-1 h-3 w-48" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-4 w-full" />
+                  </CardFeatureMedia>
+                ))}
+              </div>
+            ) : events.length === 0 ? (
               <CardFeatureMedia>
                 <p className="text-text-secondary">
                   No contributions were flagged by the heuristic. This does not prove

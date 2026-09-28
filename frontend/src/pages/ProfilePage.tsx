@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { api } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { ButtonPrimaryHero, ButtonGlassUtility } from '@/components/ui';
+import { getInitials } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/Skeleton';
 import type { ContributionHistoryEntry } from '@/types';
 import { cn } from '@/lib/utils';
 
-function getInitials(name: string) {
-  return name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-}
+
 
 interface EditProfileModalProps {
   name: string;
@@ -88,13 +86,11 @@ function HistoryRow({ entry }: { entry: ContributionHistoryEntry }) {
 }
 
 export default function ProfilePage() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser } = useAuth();
   const { addToast } = useToast();
-  const navigate = useNavigate();
   const [history, setHistory] = useState<ContributionHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
-  const [avatarOpen, setAvatarOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [profile, setProfile] = useState({
     name: currentUser?.name ?? '',
@@ -125,33 +121,7 @@ export default function ProfilePage() {
   const initials = getInitials(profile.name || currentUser?.name || 'U');
 
   return (
-    <div className="min-h-screen bg-surface-muted">
-      {/* Top bar */}
-      <header className="sticky top-0 z-40 border-b border-border-hairline/20 bg-white">
-        <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-6">
-          <Link to="/" className="font-display text-xl text-text-primary">Truth Layer</Link>
-          <div className="flex items-center gap-3">
-            <NotificationBell />
-            <div className="relative">
-              <button
-                onClick={() => setAvatarOpen(o => !o)}
-                aria-label="User menu"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-lime font-display text-sm font-black text-text-primary"
-              >
-                {initials}
-              </button>
-              {avatarOpen && (
-                <div className="absolute right-0 top-11 z-50 min-w-48 rounded-card border border-border-hairline bg-white py-2">
-                  <button onClick={() => { navigate('/projects'); setAvatarOpen(false); }} className="flex w-full px-4 py-2.5 text-sm text-text-primary hover:bg-surface-muted">Your projects</button>
-                  <div className="my-1 h-px bg-border-hairline/20" />
-                  <button onClick={() => { logout(); }} className="flex w-full px-4 py-2.5 text-sm text-text-primary hover:bg-surface-muted">Sign out</button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <div>
       <main className="mx-auto max-w-3xl px-6 py-12">
         {/* Profile card */}
         <div className="mb-8 rounded-card border border-border-hairline bg-white p-8 text-center">

@@ -93,7 +93,7 @@ export function AppRoutes() {
           <Route path="disputes" element={<DisputesPage />} />
           <Route path="ai-disclosure" element={<AIDisclosurePage />} />
           <Route path="offline-log" element={<OfflineLogPage />} />
-          <Route path="teacher-report" element={<TeacherReportPage />} />
+          <Route path="teacher-report" element={<TeacherRoute><TeacherReportPage /></TeacherRoute>} />
           <Route path="settings" element={<ProjectSettingsPage />} />
         </Route>
 

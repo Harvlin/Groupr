@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useProject } from '@/hooks/useProject';
@@ -14,13 +15,11 @@ import { api } from '@/services/api';
 import type {
   ContributionCategory,
   ContributionScore,
-  ContributionEvent,
-  ProjectMember,
   TeacherReportData,
 } from '@/types';
 
-const MEMBER_COLORS = ['#9FE870', '#0097C7', '#B8860B', '#FF8C69'];
-
+import { getMemberColor } from '@/utils/memberColors';
+import { getInitials } from '@/components/ui/Avatar';
 const CATEGORY_COLUMNS: {
   key: ContributionCategory[];
   label: string;
@@ -31,15 +30,6 @@ const CATEGORY_COLUMNS: {
   { key: ['coordination'], label: 'Coordination' },
   { key: ['coding'], label: 'Coding' },
 ];
-
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 function formatDateLabel(iso: string | undefined) {
   if (!iso) return null;
@@ -73,7 +63,7 @@ function useDismissedWarning(projectId: string | undefined) {
 
 export function TeamOverviewPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { project, members, isLoading: projectLoading } = useProject();
+  const { project, members, scores, isLoading: projectLoading } = useProject();
   const navigate = useNavigate();
   useDocumentTitle('Team overview');
 
@@ -95,18 +85,18 @@ export function TeamOverviewPage() {
   const memberColors = useMemo(() => {
     const map: Record<string, string> = {};
     members.forEach((m, i) => {
-      map[m.userId] = MEMBER_COLORS[i % MEMBER_COLORS.length];
+      map[m.userId] = getMemberColor(i);
     });
     return map;
   }, [members]);
 
   const scoresByUser = useMemo(() => {
     const map: Record<string, ContributionScore> = {};
-    reportData?.scores.forEach((s) => {
+    scores.forEach((s) => {
       map[s.userId] = s;
     });
     return map;
-  }, [reportData]);
+  }, [scores]);
 
   const orderedMembers = useMemo(() => {
     return [...members].sort((a, b) => {
@@ -243,7 +233,7 @@ export function TeamOverviewPage() {
           Team contributions
         </h2>
         <p className="mt-1 font-body text-sm text-text-tertiary">
-          Last updated 4 minutes ago
+          Last updated {scores.length > 0 ? formatDistanceToNow(new Date(scores[0].computedAt), { addSuffix: true }) : 'recently'}
         </p>
 
         <div className="mt-6 space-y-5">
@@ -360,18 +350,6 @@ export function TeamOverviewPage() {
         </div>
       </CardFeatureMedia>
 
-      {/* Activity timeline */}
-      <CardFeatureMedia className="mb-6 p-8 md:p-10">
-        <h2 className="mb-4 font-body text-base font-semibold text-text-secondary">
-          Activity over time
-        </h2>
-        <ActivityTimeline
-          events={reportData?.events ?? []}
-          members={orderedMembers}
-          memberColors={memberColors}
-        />
-      </CardFeatureMedia>
-
       {/* Individual member cards */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {orderedMembers.map((member) => {
@@ -458,171 +436,3 @@ export function TeamOverviewPage() {
   );
 }
 
-function ActivityTimeline({
-  events,
-  members,
-  memberColors,
-}: {
-  events: ContributionEvent[];
-  members: ProjectMember[];
-  memberColors: Record<string, string>;
-}) {
-  const [hoveredMember, setHoveredMember] = useState<string | null>(null);
-
-  const now = new Date();
-  const weekMs = 7 * 24 * 60 * 60 * 1000;
-  const buckets = useMemo(() => {
-    const list: { start: Date; end: Date; label: string }[] = [];
-    for (let i = 4; i >= 0; i--) {
-      const start = new Date(now.getTime() - (i + 1) * weekMs);
-      const end = new Date(now.getTime() - i * weekMs);
-      list.push({
-        start,
-        end,
-        label: i === 0 ? 'This week' : `${i}w ago`,
-      });
-    }
-    return list;
-  }, [now.getTime()]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const data = useMemo(() => {
-    const series = members.map((m) => {
-      const values = buckets.map(() => 0);
-      let total = 0;
-      events
-        .filter((e) => e.userId === m.userId)
-        .forEach((e) => {
-          const t = new Date(e.timestamp).getTime();
-          buckets.forEach((b, i) => {
-            if (t >= b.start.getTime() && t < b.end.getTime()) {
-              values[i] += e.uniqueContentDelta ?? 1;
-              total += e.uniqueContentDelta ?? 1;
-            }
-          });
-        });
-      const max = Math.max(...values, 1);
-      return { member: m, values, max, total, spike: values[values.length - 1] / (total || 1) > 0.5 };
-    });
-
-    const globalMax = Math.max(...series.flatMap((s) => s.values), 1);
-    return series.map((s) => ({
-      ...s,
-      normalized: s.values.map((v) => (globalMax > 0 ? v / globalMax : 0)),
-    }));
-  }, [events, members, buckets]);
-
-  const width = 100;
-  const height = 100;
-  const padX = 8;
-  const padY = 8;
-  const graphH = height - padY * 2;
-  const graphW = width - padX * 2;
-
-  const pointsFor = (normalized: number[]) => {
-    return normalized.map((v, i) => {
-      const x = padX + (i / (normalized.length - 1)) * graphW;
-      const y = height - padY - v * graphH;
-      return [x, y] as [number, number];
-    });
-  };
-
-  const buildSmoothPath = (points: [number, number][]) => {
-    if (points.length === 0) return '';
-    if (points.length === 1) return `M ${points[0][0]} ${points[0][1]}`;
-    let d = `M ${points[0][0]} ${points[0][1]}`;
-    for (let i = 0; i < points.length - 1; i++) {
-      const [x0, y0] = points[i];
-      const [x1, y1] = points[i + 1];
-      const cpx1 = x0 + (x1 - x0) / 2;
-      const cpy1 = y0;
-      const cpx2 = x0 + (x1 - x0) / 2;
-      const cpy2 = y1;
-      d += ` C ${cpx1} ${cpy1}, ${cpx2} ${cpy2}, ${x1} ${y1}`;
-    }
-    return d;
-  };
-
-  return (
-    <div className="w-full overflow-x-auto">
-      <div className="min-w-[320px]">
-        <div className="relative rounded-none border border-black/10 bg-white p-4">
-          <svg
-            viewBox={`0 0 ${width} ${height}`}
-            preserveAspectRatio="none"
-            className="h-[100px] w-full"
-          >
-            {/* baseline */}
-            <line
-              x1={padX}
-              y1={height - padY}
-              x2={width - padX}
-              y2={height - padY}
-              stroke="currentColor"
-              className="text-black/5"
-              strokeWidth={1}
-            />
-            {data.map(({ member, normalized, spike }) => {
-              const points = pointsFor(normalized);
-              const isDimmed = hoveredMember !== null && hoveredMember !== member.userId;
-              return (
-                <g
-                  key={member.userId}
-                  opacity={isDimmed ? 0.2 : 1}
-                  onMouseEnter={() => setHoveredMember(member.userId)}
-                  onMouseLeave={() => setHoveredMember(null)}
-                >
-                  <path
-                    d={buildSmoothPath(points)}
-                    fill="none"
-                    stroke={memberColors[member.userId]}
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  {points.map(([x, y], i) => (
-                    <circle key={i} cx={x} cy={y} r={2} fill={memberColors[member.userId]} />
-                  ))}
-                  {spike && (
-                    <g>
-                      <circle
-                        cx={points[points.length - 1][0]}
-                        cy={points[points.length - 1][1]}
-                        r={4}
-                        className="fill-accent-warning"
-                      />
-                      <title>Late-phase spike — lower weighted by anti-gaming engine</title>
-                    </g>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
-
-          <div className="mt-2 grid grid-cols-5 gap-1 text-center text-xs text-text-tertiary">
-            {buckets.map((b) => (
-              <span key={b.label}>{b.label}</span>
-            ))}
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-3">
-            {members.map((m) => (
-              <button
-                key={m.userId}
-                type="button"
-                className="flex items-center gap-1.5 text-xs text-text-secondary transition-opacity hover:opacity-80"
-                onMouseEnter={() => setHoveredMember(m.userId)}
-                onMouseLeave={() => setHoveredMember(null)}
-              >
-                <span
-                  className="inline-block h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: memberColors[m.userId] }}
-                />
-                {m.user.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { CheckCircle, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
-import type { ProjectExtended } from '@/types';
+import type { ProjectExtended, MemberConsent } from '@/types';
 
 interface Step {
   label: string;
@@ -13,14 +13,20 @@ interface Step {
 }
 
 export function SetupGuideCard() {
-  const { project, members } = useProject();
+  const { project, members, memberConsents } = useProject();
   const { isAuthenticated } = useAuth();
   const [allDone, setAllDone] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-
+  const projectId = project?.id ?? '';
+  const storageKey = `setupGuide_dismissed_${projectId}`;
+  const [dismissed, setDismissed] = useState(() => {
+    return localStorage.getItem(storageKey) === 'true';
+  });
+  // Read consents directly from ProjectContext — no independent fetch needed (fix 4.4)
+  const consents: MemberConsent[] = memberConsents;
   const sourceCount = (project as ProjectExtended | null)?.sourceCount ?? 0;
   const memberCount = members.length;
-  const projectId = project?.id ?? '';
+
+  const allConsented = members.length > 0 && consents.length === members.length && consents.every(c => c.status === 'accepted');
 
   const steps: Step[] = [
     { label: 'Account created', done: isAuthenticated },
@@ -31,33 +37,39 @@ export function SetupGuideCard() {
       cta: { label: 'Connect now →', href: `/projects/${projectId}/sources` },
     },
     {
-      label: `All members joined (${memberCount}/4)`,
-      done: memberCount >= 4,
+      // Treat as done once any teammates have joined beyond the creator
+      label: `Teammates joined (${Math.max(0, memberCount - 1)} of 3)`,
+      done: memberCount >= 2,
       cta: { label: 'Invite →', href: `/projects/${projectId}/settings#members` },
     },
     {
       label: 'All members consented',
-      done: false,
+      done: allConsented,
       cta: { label: 'View consent status →', href: `/projects/${projectId}/sources` },
     },
     {
       label: 'Tracking active',
-      done: false,
+      done: sourceCount > 0,
     },
   ];
 
   const allComplete = steps.every((s) => s.done);
 
+  const handleDismiss = () => {
+    setDismissed(true);
+    localStorage.setItem(storageKey, 'true');
+  };
+
   useEffect(() => {
     if (allComplete) {
       const timer = setTimeout(() => setAllDone(true), 200);
-      const dismiss = setTimeout(() => setDismissed(true), 5500);
+      const dismiss = setTimeout(handleDismiss, 5500);
       return () => {
         clearTimeout(timer);
         clearTimeout(dismiss);
       };
     }
-  }, [allComplete]);
+  }, [allComplete, projectId]);
 
   if (dismissed) return null;
 

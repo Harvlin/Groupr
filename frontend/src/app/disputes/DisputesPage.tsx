@@ -10,35 +10,36 @@ import {
 } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { api } from '@/services/api';
+import { getInitials } from '@/components/ui/Avatar';
+import { Skeleton } from '@/components/Skeleton';
 import type { Dispute } from '@/types';
 
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase();
-}
 
 export function DisputesPage() {
-  const [disputes, setDisputes] = useState<Dispute[]>([]);
+  const [localDisputes, setLocalDisputes] = useState<Dispute[] | null>(null);
   const [reason, setReason] = useState('');
   const { addToast } = useToast();
-  const { project } = useProject();
+  const { project, disputes: contextDisputes, isLoading, refetch } = useProject();
   useDocumentTitle('Disputes');
 
   const isFinalized = project?.status === 'completed';
 
+  // Seed local state from context once loaded; local state handles optimistic adds
   useEffect(() => {
-    api.getTeacherReport().then((data) => setDisputes(data.disputes));
-  }, []);
+    if (!isLoading && localDisputes === null) {
+      setLocalDisputes(contextDisputes);
+    }
+  }, [isLoading, contextDisputes, localDisputes]);
+
+  const disputes = localDisputes ?? contextDisputes;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isFinalized || !reason.trim()) return;
     const newDispute = await api.submitDispute(reason.trim());
-    setDisputes((prev) => [newDispute, ...prev]);
+    setLocalDisputes((prev) => [newDispute, ...(prev ?? [])]);
     setReason('');
+    refetch(); // sync dispute state back to context
     addToast('Dispute submitted successfully. Your teacher will review it.', 'success');
   };
 
@@ -106,7 +107,20 @@ export function DisputesPage() {
             <h2 className="font-display text-xl text-text-primary" style={{ lineHeight: 0.95 }}>
               Your disputes
             </h2>
-            {disputes.length === 0 ? (
+            {isLoading ? (
+              <div className="mt-4 space-y-4">
+                {[1, 2].map((i) => (
+                  <CardFeatureMedia key={i} className="p-5">
+                    <div className="mb-3 flex items-center gap-3">
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <Skeleton className="h-5 w-32" />
+                    </div>
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="mt-3 h-3 w-24" />
+                  </CardFeatureMedia>
+                ))}
+              </div>
+            ) : disputes.length === 0 ? (
               <p className="mt-4 text-text-secondary">No disputes filed yet.</p>
             ) : (
               <div className="mt-4 space-y-4">

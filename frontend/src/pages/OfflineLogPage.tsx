@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2 } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -9,6 +9,8 @@ import { useToast } from '@/hooks/useToast';
 import { ButtonPrimaryHero, CardFeatureMedia } from '@/components/ui';
 import { api } from '@/services/api';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { getInitials } from '@/components/ui/Avatar';
+import { Skeleton } from '@/components/Skeleton';
 import type { OfflineLog } from '@/types';
 
 const OFFLINE_CATEGORIES = [
@@ -20,14 +22,7 @@ const OFFLINE_CATEGORIES = [
   'Other',
 ];
 
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
+
 
 function formatDate(iso: string) {
   const date = new Date(iso + 'T00:00:00');
@@ -42,9 +37,10 @@ function formatDate(iso: string) {
 export function OfflineLogPage() {
   useDocumentTitle('Log Offline Contribution');
   const { projectId } = useParams<{ projectId: string }>();
-  const { project, members } = useProject();
+  const { project, members, isLoading: projectLoading } = useProject();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
+  const navigate = useNavigate();
 
   const [logs, setLogs] = useState<OfflineLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
@@ -132,13 +128,28 @@ export function OfflineLogPage() {
     }
   };
 
-  if (!currentUser || !project) {
-    return null;
+  if (projectLoading || !currentUser || !project) {
+    return (
+      <PageContainer width="narrow">
+        <div className="mb-8 space-y-4">
+          <Skeleton className="h-10 w-2/3" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </PageContainer>
+    );
   }
 
   return (
     <PageContainer width="narrow">
       {/* Header */}
+      <div className="mb-2 flex items-center gap-3">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-sm text-text-secondary transition-colors hover:text-text-primary"
+        >
+          ← Back
+        </button>
+      </div>
       <h1
         className="font-display text-3xl text-text-primary"
         style={{ lineHeight: 0.9 }}
@@ -323,7 +334,7 @@ export function OfflineLogPage() {
             className="w-full"
             disabled={!canSubmit || submitting}
           >
-            Log contribution
+            {submitting ? "Logging…" : "Log contribution"}
           </ButtonPrimaryHero>
         </form>
       </CardFeatureMedia>
@@ -442,12 +453,12 @@ export function OfflineLogPage() {
       </div>
 
       <div className="mt-8">
-        <Link
-          to={`/projects/${projectId}/coach`}
+        <button
+          onClick={() => navigate(-1)}
           className="font-body text-sm font-semibold text-accent-blue hover:underline"
         >
-          ← Back to Coach Mode
-        </Link>
+          ← Back
+        </button>
       </div>
     </PageContainer>
   );

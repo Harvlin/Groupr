@@ -13,19 +13,13 @@ import {
 } from '@/components/ui';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { api } from '@/services/api';
+import { getInitials } from '@/components/ui/Avatar';
+import { Link } from 'react-router-dom';
 import type {
   ContributionScore,
   ProjectMember,
   TeacherReportData,
 } from '@/types';
-
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase();
-}
 
 function MemberRow({
   score,
@@ -183,10 +177,15 @@ export function TeacherReportPage() {
               {data.project.name}
             </h1>
           </div>
-          <ButtonPrimaryHero onClick={() => window.print()}>
-            <Download size={16} />
-            Export report
-          </ButtonPrimaryHero>
+          <div className="flex items-center gap-4">
+            <Link to={`/projects/${project?.id}/ai-disclosure`} className="text-sm font-semibold text-accent-blue hover:underline">
+              View AI Disclosure →
+            </Link>
+            <ButtonPrimaryHero onClick={() => window.print()}>
+              <Download size={16} />
+              Export report
+            </ButtonPrimaryHero>
+          </div>
         </div>
 
         {isFinalized && (

@@ -1,36 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { AlertTriangle, Flag, MessageSquareWarning } from 'lucide-react';
 import { api } from '@/services/api';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/useToast';
-import { NotificationBell } from '@/components/notifications/NotificationBell';
-import { ButtonNavCta, ButtonGlassUtility } from '@/components/ui';
+import { ButtonNavCta } from '@/components/ui';
 import { Skeleton } from '@/components/Skeleton';
 import type { TeacherProjectSummary } from '@/types';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-function getInitials(name: string) {
-  return name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-}
-
 type FilterType = 'all' | 'active' | 'issues' | 'finalised';
 type SortType = 'deadline_asc' | 'deadline_desc' | 'name' | 'issues';
 
-function ProjectRow({ project, onFinalise }: { project: TeacherProjectSummary; onFinalise: (id: string) => void }) {
+function ProjectRow({ project }: { project: TeacherProjectSummary }) {
   const navigate = useNavigate();
-  const [confirming, setConfirming] = useState(false);
-  const [finalising, setFinalising] = useState(false);
   const daysLeft = differenceInDays(parseISO(project.deadline), new Date());
   const deadlineUrgent = daysLeft <= 3 && project.status === 'active';
-
-  const handleFinalise = async () => {
-    setFinalising(true);
-    await api.finaliseProject(project.projectId);
-    onFinalise(project.projectId);
-    setConfirming(false);
-    setFinalising(false);
-  };
 
   return (
     <div className="rounded-card border border-border-hairline bg-white p-6">
@@ -42,9 +26,9 @@ function ProjectRow({ project, onFinalise }: { project: TeacherProjectSummary; o
             <span className="rounded-hairline border border-border-hairline/40 px-2 py-0.5 text-xs text-text-secondary">{project.subject}</span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <span className={cn('text-sm', deadlineUrgent ? 'text-accent-warning font-medium' : 'text-text-tertiary')}>
+            <span className={cn('text-sm flex items-center gap-1', deadlineUrgent ? 'text-accent-warning font-medium' : 'text-text-tertiary')}>
               Due {format(parseISO(project.deadline), 'd MMM yyyy')}
-              {deadlineUrgent && ' ⚠'}
+              {deadlineUrgent && <AlertTriangle size={14} aria-hidden="true" />}
             </span>
             <span className="text-sm text-text-tertiary">{project.teamSize} members</span>
           </div>
@@ -54,13 +38,22 @@ function ProjectRow({ project, onFinalise }: { project: TeacherProjectSummary; o
         <div className="flex flex-col items-end gap-3">
           <div className="flex flex-wrap justify-end gap-2">
             {project.hasImbalance && (
-              <span className="rounded-control border border-accent-warning px-3 py-1 text-xs font-medium text-accent-warning">⚠ Imbalance</span>
+              <span className="flex items-center gap-1.5 rounded-control border border-accent-warning px-3 py-1 text-xs font-medium text-accent-warning">
+                <AlertTriangle size={14} aria-hidden="true" />
+                Imbalance
+              </span>
             )}
             {project.hasOpenDisputes && (
-              <span className="rounded-control border border-accent-warning px-3 py-1 text-xs font-medium text-accent-warning">Dispute(s)</span>
+              <span className="flex items-center gap-1.5 rounded-control border border-accent-warning px-3 py-1 text-xs font-medium text-accent-warning">
+                <MessageSquareWarning size={14} aria-hidden="true" />
+                Dispute(s)
+              </span>
             )}
             {project.hasCollusionFlags && (
-              <span className="rounded-control border border-accent-warning px-3 py-1 text-xs font-medium text-accent-warning">⚑ Review flagged</span>
+              <span className="flex items-center gap-1.5 rounded-control border border-accent-warning px-3 py-1 text-xs font-medium text-accent-warning">
+                <Flag size={14} aria-hidden="true" />
+                Review flagged
+              </span>
             )}
             {project.pendingConsentCount > 0 && (
               <span className="rounded-control border border-border-hairline px-3 py-1 text-xs text-text-secondary">{project.pendingConsentCount} pending consent</span>
@@ -70,18 +63,6 @@ function ProjectRow({ project, onFinalise }: { project: TeacherProjectSummary; o
             <ButtonNavCta size="default" onClick={() => navigate(`/projects/${project.projectId}/teacher-report`)}>
               Open report
             </ButtonNavCta>
-            {project.status === 'active' && !confirming && (
-              <ButtonGlassUtility onClick={() => setConfirming(true)}>Finalise</ButtonGlassUtility>
-            )}
-            {confirming && (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-text-secondary">Lock scores?</span>
-                <button onClick={handleFinalise} disabled={finalising} className="font-medium text-accent-warning hover:underline">
-                  {finalising ? 'Finalising…' : 'Yes, finalise'}
-                </button>
-                <button onClick={() => setConfirming(false)} className="text-text-tertiary hover:underline">Cancel</button>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -90,23 +71,14 @@ function ProjectRow({ project, onFinalise }: { project: TeacherProjectSummary; o
 }
 
 export default function TeacherDashboardPage() {
-  const { currentUser, logout } = useAuth();
-  const { addToast } = useToast();
-  const navigate = useNavigate();
   const [projects, setProjects] = useState<TeacherProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>('all');
   const [sort, setSort] = useState<SortType>('deadline_asc');
-  const [avatarOpen, setAvatarOpen] = useState(false);
 
   useEffect(() => {
     api.getTeacherProjects().then(setProjects).finally(() => setLoading(false));
   }, []);
-
-  const handleFinalise = (id: string) => {
-    setProjects(prev => prev.map(p => p.projectId === id ? { ...p, status: 'finalised' as const } : p));
-    addToast('Project finalised — scores locked.', 'success');
-  };
 
   const filtered = projects
     .filter(p => {
@@ -127,7 +99,6 @@ export default function TeacherDashboardPage() {
       return 0;
     });
 
-  const initials = currentUser ? getInitials(currentUser.name) : '??';
   const activeCount = projects.filter(p => p.status === 'active').length;
   const totalStudents = projects.reduce((acc, p) => acc + p.teamSize, 0);
 
@@ -139,36 +110,7 @@ export default function TeacherDashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-surface-muted">
-      {/* Top bar */}
-      <header className="sticky top-0 z-40 border-b border-border-hairline/20 bg-white">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <Link to="/" className="font-display text-xl text-text-primary">Truth Layer</Link>
-            <span className="rounded-control bg-surface-forest px-3 py-1 text-xs font-semibold text-accent-lime">Teacher view</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <NotificationBell />
-            <div className="relative">
-              <button
-                onClick={() => setAvatarOpen(o => !o)}
-                aria-label="User menu"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-lime font-display text-sm font-black text-text-primary focus-visible:outline-2 focus-visible:outline-accent-lime"
-              >
-                {initials}
-              </button>
-              {avatarOpen && (
-                <div className="absolute right-0 top-11 z-50 min-w-48 rounded-card border border-border-hairline bg-white py-2">
-                  <button onClick={() => { navigate('/profile'); setAvatarOpen(false); }} className="flex w-full px-4 py-2.5 text-sm text-text-primary hover:bg-surface-muted">My profile</button>
-                  <div className="my-1 h-px bg-border-hairline/20" />
-                  <button onClick={() => { logout(); }} className="flex w-full px-4 py-2.5 text-sm text-text-primary hover:bg-surface-muted">Sign out</button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <div>
       <main className="mx-auto max-w-6xl px-6 py-12">
         {/* Header */}
         <div className="mb-8">
@@ -228,7 +170,7 @@ export default function TeacherDashboardPage() {
         ) : (
           <div className="space-y-4">
             {filtered.map(p => (
-              <ProjectRow key={p.projectId} project={p} onFinalise={handleFinalise} />
+              <ProjectRow key={p.projectId} project={p} />
             ))}
           </div>
         )}

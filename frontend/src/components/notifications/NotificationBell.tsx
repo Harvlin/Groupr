@@ -30,8 +30,8 @@ function NotificationRow({ notif, onClose }: { notif: Notification; onClose: () 
 
   const handleClick = () => {
     markRead(notif.id);
-    if (notif.actionRoute) navigate(notif.actionRoute);
     onClose();
+    if (notif.actionRoute) navigate(notif.actionRoute);
   };
 
   const timeAgo = formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true });

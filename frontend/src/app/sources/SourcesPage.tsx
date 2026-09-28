@@ -32,7 +32,7 @@ export function SourcesPage() {
   const [newId, setNewId] = useState('');
   const [syncStatus, setSyncStatus] = useState<Record<string, SyncStatus>>({});
   const { addToast } = useToast();
-  const { project } = useProject();
+  const { project, refetch } = useProject();
   useDocumentTitle('Connected Sources');
 
   const isFinalized = project?.status === 'completed';
@@ -50,6 +50,7 @@ export function SourcesPage() {
     const created = await api.connectSource(newType, newId.trim());
     setSources((prev) => [...prev, created]);
     setNewId('');
+    refetch(); // update ProjectContext so SetupGuideCard reflects new sourceCount (fix 4.9)
     addToast(
       `Connected ${newType === 'google_docs' ? 'Google Doc' : 'GitHub repo'}. Waiting for team consent.`,
       'success'

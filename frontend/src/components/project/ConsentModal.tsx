@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { ButtonPrimaryHero, ButtonGlassUtility } from '@/components/ui';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useToast } from '@/hooks/useToast';
+import { useProject } from '@/hooks/useProject';
 import { api } from '@/services/api';
 
 interface ConsentModalProps {
@@ -12,6 +13,7 @@ interface ConsentModalProps {
 export function ConsentModal({ onClose }: ConsentModalProps) {
   const { projectId } = useParams<{ projectId: string }>();
   const { addToast } = useToast();
+  const { refetch } = useProject();
   const trapRef = useFocusTrap(true);
 
   // Prevent scroll on body
@@ -23,6 +25,7 @@ export function ConsentModal({ onClose }: ConsentModalProps) {
   const handleAccept = async () => {
     await api.submitConsent(projectId ?? '', true);
     addToast('Tracking is now active for you in this project.', 'success');
+    refetch(); // Fix 4.4: Propagate consent state across pages
     onClose(true);
   };
 

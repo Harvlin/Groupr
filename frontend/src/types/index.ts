@@ -39,6 +39,7 @@ export interface Project {
   createdAt: string;
   deadline?: string;
   status: ProjectStatus;
+  sourceCount?: number;
 }
 
 export interface ProjectMember {
@@ -142,6 +143,7 @@ export interface DashboardData {
   bucketBreakdown: Record<TimeBucket, number>;
   sessionCount: number;
   teamAverage: number;
+  hasPendingDispute?: boolean;
 }
 
 export interface TeacherReportData {
@@ -210,6 +212,9 @@ export interface ProjectContextValue {
   members: ProjectMember[];
   currentMember: ProjectMember | null;
   tasks: ProjectTask[];
+  scores: ContributionScore[];
+  disputes: Dispute[];
+  memberConsents: MemberConsent[];
   isLoading: boolean;
   refetch: () => void;
   updateTask: (taskId: string, status: TaskStatus) => void;

@@ -17,7 +17,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     api.getNotifications().then((data) => {
-      setNotifications(data);
+      // Load persisted read states
+      const saved = localStorage.getItem('tl-read-notifications');
+      const readSet = saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
+
+      const merged = data.map((n) =>
+        readSet.has(n.id) ? { ...n, isRead: true } : n
+      );
+      setNotifications(merged);
       setIsLoading(false);
     });
   }, []);
@@ -28,14 +35,22 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   );
 
   const markRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    );
+    setNotifications((prev) => {
+      const next = prev.map((n) => (n.id === id ? { ...n, isRead: true } : n));
+      const readIds = next.filter((n) => n.isRead).map((n) => n.id);
+      localStorage.setItem('tl-read-notifications', JSON.stringify(readIds));
+      return next;
+    });
     api.markNotificationRead(id);
   }, []);
 
   const markAllRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setNotifications((prev) => {
+      const next = prev.map((n) => ({ ...n, isRead: true }));
+      const readIds = next.filter((n) => n.isRead).map((n) => n.id);
+      localStorage.setItem('tl-read-notifications', JSON.stringify(readIds));
+      return next;
+    });
     api.markAllNotificationsRead();
   }, []);
 
