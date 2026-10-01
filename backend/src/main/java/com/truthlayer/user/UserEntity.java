@@ -43,12 +43,14 @@ public class UserEntity {
     protected UserEntity() {
     }
 
-    public UserEntity(String email, String displayName, String passwordHash, UserRole role) {
+    public UserEntity(String email, String displayName, String passwordHash, UserRole role, String school, String grade) {
         this.id = UUID.randomUUID();
         this.email = email;
         this.displayName = displayName;
         this.passwordHash = passwordHash;
         this.role = role;
+        this.school = school;
+        this.grade = grade;
         this.status = "ACTIVE";
         this.createdAt = Instant.now();
     }

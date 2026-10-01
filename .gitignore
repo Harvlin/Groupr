@@ -14,11 +14,6 @@ credentials.json
 client_secret.json
 
 # ==============================================================================
-# Markdown Files (User requested)
-# ==============================================================================
-*.md
-
-# ==============================================================================
 # OS Generated Files
 # ==============================================================================
 .DS_Store
@@ -120,7 +115,8 @@ application-secret.yml
 application-secret.yaml
 
 
-.BACKEND_BUILD_PLAN.md
-.DESIGN_SYSTEM.md
+BACKEND_BUILD_PLAN.md
+DESIGN_SYSTEM.md
 truth-layer-antigravity-phases-en.md
+truth-layer-prd-en.md
 wise-design.md

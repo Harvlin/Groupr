@@ -143,7 +143,7 @@ export default function ProjectSettingsPage() {
           {members.map((member) => {
             const isYou = member.userId === currentUser?.id;
             return (
-              <div key={member.id} className="flex items-center justify-between gap-3 px-4 py-3">
+              <div key={member.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-lime font-display text-sm font-black text-text-primary">
                     {(member.user.name ?? 'U').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()}
@@ -173,7 +173,7 @@ export default function ProjectSettingsPage() {
         </div>
 
         {/* Invite */}
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             value={inviteEmail}
             onChange={e => setInviteEmail(e.target.value)}
@@ -195,7 +195,7 @@ export default function ProjectSettingsPage() {
           <>
             <div className="mb-3 divide-y divide-border-hairline/20 rounded-card border border-border-hairline bg-white overflow-hidden">
               {consents.map(c => (
-                <div key={c.memberId} className="flex items-center justify-between px-4 py-3">
+                <div key={c.memberId} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-lime font-display text-xs font-black text-text-primary">
                       {c.memberAvatarInitials}
@@ -236,7 +236,17 @@ export default function ProjectSettingsPage() {
               <p className="text-xs text-text-tertiary">Team members can log offline contributions</p>
             </div>
             <button
-              onClick={() => setAllowOfflineLog(v => !v)}
+              onClick={async () => {
+                const newVal = !allowOfflineLog;
+                setAllowOfflineLog(newVal);
+                try {
+                  await api.updateTrackingSettings(projectId ?? '', { expectedDistribution: 'equal', language: 'en', allowOfflineLog: newVal, autoWarnThreshold: warnThreshold });
+                  addToast('Settings updated', 'success');
+                } catch {
+                  setAllowOfflineLog(!newVal);
+                  addToast('Failed to update settings', 'error');
+                }
+              }}
               aria-label="Toggle offline log"
               className={cn(
                 'relative h-6 w-11 rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-accent-lime',
@@ -260,6 +270,14 @@ export default function ProjectSettingsPage() {
                 min={5} max={40} step={5}
                 value={warnThreshold}
                 onChange={e => setWarnThreshold(Number(e.target.value))}
+                onBlur={async () => {
+                  try {
+                    await api.updateTrackingSettings(projectId ?? '', { expectedDistribution: 'equal', language: 'en', allowOfflineLog, autoWarnThreshold: warnThreshold });
+                    addToast('Settings updated', 'success');
+                  } catch {
+                    addToast('Failed to update settings', 'error');
+                  }
+                }}
                 className="w-24 rounded-control border border-border-hairline px-3 py-2 text-sm text-text-primary focus:border-accent-lime focus:outline-none"
               />
               <span className="text-sm text-text-secondary">%</span>

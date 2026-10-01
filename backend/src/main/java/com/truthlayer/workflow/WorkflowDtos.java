@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public final class WorkflowDtos {
     private WorkflowDtos() {}
-    public record OfflineCreateRequest(@NotBlank String description, @Positive double hours, LocalDate date, @NotBlank String category) {}
+    public record OfflineCreateRequest(@NotBlank String description, @Positive double hours, LocalDate date, @NotBlank String category, List<UUID> corroboratedBy) {}
     public record OfflineResponse(UUID id, UUID userId, UUID projectId, String description, double hours, LocalDate date, String category, List<String> corroboratedBy, String status, Instant createdAt) {}
     public record CorroborationResponse(UUID id, UUID logId, UUID requestingMemberId, UUID targetMemberId, String description, double hours, LocalDate date, String status) {}
     public record DisputeCreateRequest(@NotBlank String reason) {}

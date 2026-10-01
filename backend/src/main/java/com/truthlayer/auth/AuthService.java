@@ -39,7 +39,7 @@ public class AuthService {
             throw new IllegalArgumentException("An account with this email already exists");
         }
         var role = parseRole(request.role());
-        var user = new UserEntity(email, request.name().trim(), passwordEncoder.encode(request.password()), role);
+        var user = new UserEntity(email, request.name().trim(), passwordEncoder.encode(request.password()), role, request.school(), request.grade());
         users.save(user);
         return response(user);
     }

@@ -199,6 +199,14 @@ export const api = {
     return delay(settings, 400);
   },
 
+  async updateTrackingSettings(projectId: string, settings: { expectedDistribution: string, customDistribution?: string, language: string, allowOfflineLog: boolean, autoWarnThreshold: number }): Promise<void> {
+    if (backendEnabled) {
+      await apiRequest(`/api/v1/projects/${projectId}/settings`, { method: 'PATCH', body: JSON.stringify(settings) });
+      return;
+    }
+    return delay(undefined, 300);
+  },
+
   async archiveProject(projectId: string): Promise<{ projectId: string; status: string }> {
     if (backendEnabled) {
       await apiRequest(`/api/v1/projects/${projectId}/archive`, { method: 'POST' });
@@ -542,7 +550,7 @@ export const api = {
   async submitOfflineLog(
     log: Omit<OfflineLog, 'id' | 'status'>
   ): Promise<OfflineLog> {
-    if (backendEnabled) return apiRequest<OfflineLog>(`/api/v1/projects/${log.projectId}/offline-logs`, { method: 'POST', body: JSON.stringify({ description: log.description, hours: log.hours, date: log.date, category: log.category }) });
+    if (backendEnabled) return apiRequest<OfflineLog>(`/api/v1/projects/${log.projectId}/offline-logs`, { method: 'POST', body: JSON.stringify({ description: log.description, hours: log.hours, date: log.date, category: log.category, corroboratedBy: log.corroboratedBy }) });
     const newLog: OfflineLog = {
       id: `ol${Date.now()}`,
       ...log,
@@ -585,11 +593,11 @@ export const api = {
     return delay(disputes, 300);
   },
 
-  async submitDispute(reason: string): Promise<Dispute> {
-    if (backendEnabled) return apiRequest<Dispute>(`/api/v1/projects/${currentProjectId()}/disputes`, { method: 'POST', body: JSON.stringify({ reason }) });
+  async submitDispute(projectId: string, reason: string): Promise<Dispute> {
+    if (backendEnabled) return apiRequest<Dispute>(`/api/v1/projects/${projectId}/disputes`, { method: 'POST', body: JSON.stringify({ reason }) });
     const newDispute: Dispute = {
       id: `d-${Date.now()}`,
-      projectId: project.id,
+      projectId: projectId,
       userId: 'current-user',
       user: {
         id: 'current-user',

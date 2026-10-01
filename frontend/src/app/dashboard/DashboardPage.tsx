@@ -206,7 +206,7 @@ export function DashboardPage() {
         </motion.div>
       )}
 
-      <div className="flex items-stretch gap-5">
+      <div className="flex flex-col items-stretch gap-5 md:flex-row">
         <motion.div className="flex-1" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <Card padding="lg" className="flex h-full flex-col">
             <div className="flex flex-col gap-3">
@@ -291,7 +291,7 @@ export function DashboardPage() {
         </Card>
       </motion.div>
 
-      <div className="mt-5 flex gap-5">
+      <div className="mt-5 flex flex-col gap-5 md:flex-row">
         <motion.div className="flex-[3]" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <Card padding="md" className="h-full">
             <span className="mb-4 block text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">

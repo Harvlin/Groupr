@@ -26,7 +26,18 @@ public class WorkflowService {
     @Transactional(readOnly = true)
     public List<WorkflowDtos.OfflineResponse> listLogs(UUID userId, UUID projectId) { projects.get(userId, projectId); return logs.findByProjectIdOrderByDateDesc(projectId).stream().map(this::offline).toList(); }
     @Transactional
-    public WorkflowDtos.OfflineResponse createLog(UUID userId, UUID projectId, WorkflowDtos.OfflineCreateRequest request) { projects.get(userId, projectId); if (request.date() == null || request.date().isAfter(LocalDate.now())) throw new IllegalArgumentException("Offline work date must not be in the future"); return offline(logs.save(new OfflineLogEntity(projectId, userId, request.description(), request.hours(), request.date(), request.category()))); }
+    public WorkflowDtos.OfflineResponse createLog(UUID userId, UUID projectId, WorkflowDtos.OfflineCreateRequest request) {
+        projects.get(userId, projectId);
+        if (request.date() == null || request.date().isAfter(LocalDate.now())) throw new IllegalArgumentException("Offline work date must not be in the future");
+        var log = logs.save(new OfflineLogEntity(projectId, userId, request.description(), request.hours(), request.date(), request.category()));
+        if (request.corroboratedBy() != null) {
+            for (UUID targetId : request.corroboratedBy()) {
+                corroborations.save(new CorroborationRequestEntity(log.getId(), userId, targetId, request.description(), request.hours(), request.date()));
+                notifications.save(new NotificationEntity(targetId, projectId, "CORROBORATION", "Project Name", "New corroboration request for offline work", "Review", "/projects/" + projectId + "/offline-log"));
+            }
+        }
+        return offline(log);
+    }
     @Transactional
     public void deleteLog(UUID userId, UUID logId) { var log = logs.findById(logId).orElseThrow(() -> new IllegalArgumentException("Offline log not found")); projects.get(userId, log.getProjectId()); if (!log.getUserId().equals(userId)) throw new SecurityException("Only the log owner can delete it"); logs.delete(log); }
     @Transactional(readOnly = true)
