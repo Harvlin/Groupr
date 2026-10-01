@@ -5,6 +5,7 @@ import com.truthlayer.membership.MemberConsentRepository;
 import com.truthlayer.membership.ProjectMemberRepository;
 import com.truthlayer.contribution.ContributionEventRepository;
 import com.truthlayer.ingestion.RawSourceEventRepository;
+import com.truthlayer.ingestion.GoogleDocsSyncService;
 import com.truthlayer.project.ProjectService;
 import com.truthlayer.user.UserRepository;
 import java.util.List;
@@ -23,12 +24,13 @@ public class SourceService {
     private final ContributionEventRepository events;
     private final RawSourceEventRepository rawEvents;
     private final GitHubInstallationRepository githubInstallations;
+    private final GoogleDocsSyncService googleDocs;
 
     public SourceService(ConnectedSourceRepository sources, SyncRunRepository syncRuns, MemberConsentRepository consents,
                          ProjectMemberRepository members, ProjectService projects, UserRepository users,
-                         ContributionEventRepository events, RawSourceEventRepository rawEvents, GitHubInstallationRepository githubInstallations) {
+                         ContributionEventRepository events, RawSourceEventRepository rawEvents, GitHubInstallationRepository githubInstallations, GoogleDocsSyncService googleDocs) {
         this.sources = sources; this.syncRuns = syncRuns; this.consents = consents; this.members = members;
-        this.projects = projects; this.users = users; this.events = events; this.rawEvents = rawEvents; this.githubInstallations = githubInstallations;
+        this.projects = projects; this.users = users; this.events = events; this.rawEvents = rawEvents; this.githubInstallations = githubInstallations; this.googleDocs = googleDocs;
     }
 
     @Transactional(readOnly = true)
@@ -61,7 +63,7 @@ public class SourceService {
         source.startSync();
         var run = syncRuns.save(new SyncRunEntity(source.getId(), source.getSyncCursor()));
         run.start();
-        // Provider-specific fetchers are added in the GitHub and Google phases. This run records a safe framework sync now.
+        if (source.getProvider() == SourceProvider.GOOGLE_DOCS) googleDocs.sync(source.getId());
         run.succeed(source.getSyncCursor());
         source.completeSync(source.getSyncCursor());
         return syncResponse(run);

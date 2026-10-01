@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.truthlayer.scoring.ScoringDtos;
 import com.truthlayer.scoring.ScoringService;
 import java.util.UUID;
+import java.io.ByteArrayOutputStream;
+import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +35,21 @@ public class ReportController {
     public ResponseEntity<String> printable(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId) {
         var report = scoring.teacherReport(UUID.fromString(jwt.getSubject()), projectId);
         return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(html(report));
+    }
+
+    @GetMapping("/{projectId}/teacher-report.pdf")
+    public ResponseEntity<byte[]> pdf(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId) {
+        var report = scoring.teacherReport(UUID.fromString(jwt.getSubject()), projectId);
+        try {
+            var output = new ByteArrayOutputStream();
+            new PdfRendererBuilder().withHtmlContent(html(report), "https://groupr-production.up.railway.app/").toStream(output).run();
+            return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=truth-layer-report.pdf")
+                .body(output.toByteArray());
+        } catch (Exception exception) {
+            throw new IllegalStateException("Teacher report PDF could not be generated", exception);
+        }
     }
 
     private String html(ScoringDtos.TeacherReportResponse report) {

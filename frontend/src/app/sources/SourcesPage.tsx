@@ -32,6 +32,7 @@ export function SourcesPage() {
   const [newId, setNewId] = useState('');
   const [syncStatus, setSyncStatus] = useState<Record<string, SyncStatus>>({});
   const [githubConnecting, setGithubConnecting] = useState(false);
+  const [googleConnecting, setGoogleConnecting] = useState(false);
   const { addToast } = useToast();
   const { project, refetch } = useProject();
   useDocumentTitle('Connected Sources');
@@ -51,6 +52,10 @@ export function SourcesPage() {
       addToast('GitHub App connected. Select a repository to begin tracking.', 'success');
       window.history.replaceState({}, '', window.location.pathname);
     }
+    if (params.get('google') === 'connected') {
+      addToast('Google Doc connected. Every team member must consent before syncing.', 'success');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, [addToast]);
 
   const handleGithubAppConnect = async () => {
@@ -62,6 +67,21 @@ export function SourcesPage() {
     } catch (error) {
       addToast(error instanceof Error ? error.message : 'Unable to start GitHub connection.', 'error');
       setGithubConnecting(false);
+    }
+  };
+
+  const handleGoogleConnect = async () => {
+    if (!project?.id || isFinalized || !newId.trim()) {
+      addToast('Enter a Google Doc ID before connecting.', 'error');
+      return;
+    }
+    setGoogleConnecting(true);
+    try {
+      const authorizationUrl = await api.getGoogleConnectUrl(project.id, newId.trim());
+      window.location.assign(authorizationUrl);
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to start Google connection.', 'error');
+      setGoogleConnecting(false);
     }
   };
 
@@ -210,6 +230,16 @@ export function SourcesPage() {
               >
                 <Github size={16} />
                 <span className="ml-2">{githubConnecting ? 'Opening GitHub…' : 'Install GitHub App'}</span>
+              </ButtonGlassUtility>
+
+              <ButtonGlassUtility
+                type="button"
+                className="w-full justify-center"
+                onClick={handleGoogleConnect}
+                disabled={isFinalized || googleConnecting || newType !== 'google_docs'}
+              >
+                <FileText size={16} />
+                <span className="ml-2">{googleConnecting ? 'Opening Google…' : 'Connect Google account'}</span>
               </ButtonGlassUtility>
 
               <div className="border-t border-black/10 pt-4">

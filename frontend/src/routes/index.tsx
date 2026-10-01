@@ -5,6 +5,7 @@ import { TeacherReportPage } from '@/app/teacher-report/TeacherReportPage';
 import { SourcesPage } from '@/app/sources/SourcesPage';
 import { DisputesPage } from '@/app/disputes/DisputesPage';
 import { PrivacyPage } from '@/app/privacy/PrivacyPage';
+import { TermsOfServicePage } from '@/app/terms/TermsOfServicePage';
 import { AIDisclosurePage } from '@/app/ai-disclosure/AIDisclosurePage';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { TeacherRoute } from '@/components/auth/TeacherRoute';
@@ -37,6 +38,7 @@ export function AppRoutes() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="/invite/:token" element={<InvitationPage />} />
 
         {/* Protected — global layout (projects list, profile, teacher dashboard) */}

@@ -138,6 +138,22 @@ export function TeacherReportPage() {
 
   const isFinalized = project?.status === 'completed';
 
+  const handleExport = async () => {
+    if (!project?.id) return;
+    try {
+      const blob = await api.downloadTeacherReportPdf(project.id);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${project.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-report.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      addToast('PDF report downloaded.', 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to export report.', 'error');
+    }
+  };
+
   useEffect(() => {
     api.getTeacherReport().then((result) => {
       setData(result);
@@ -181,7 +197,7 @@ export function TeacherReportPage() {
             <Link to={`/projects/${project?.id}/ai-disclosure`} className="text-sm font-semibold text-accent-blue hover:underline">
               View AI Disclosure →
             </Link>
-            <ButtonPrimaryHero onClick={() => window.print()}>
+            <ButtonPrimaryHero onClick={handleExport}>
               <Download size={16} />
               Export report
             </ButtonPrimaryHero>

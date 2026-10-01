@@ -17,4 +17,9 @@ public class SourceCredentialEntity {
     @Column(name = "expires_at") private Instant expiresAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
     protected SourceCredentialEntity() {}
+    public SourceCredentialEntity(UUID sourceId, String accessToken, String refreshToken, String scopes, Instant expiresAt) { this.sourceId = sourceId; this.encryptedAccessToken = accessToken; this.encryptedRefreshToken = refreshToken; this.scopes = scopes; this.expiresAt = expiresAt; this.updatedAt = Instant.now(); }
+    public UUID getSourceId() { return sourceId; }
+    public String getEncryptedAccessToken() { return encryptedAccessToken; }
+    public String getEncryptedRefreshToken() { return encryptedRefreshToken; }
+    public Instant getExpiresAt() { return expiresAt; }
 }

@@ -45,7 +45,7 @@ import type {
   TeacherProjectSummary,
   ProjectSettings,
 } from '@/types';
-import { apiRequest, backendEnabled, setAccessToken } from '@/services/httpClient';
+import { apiRequest, apiRequestBlob, backendEnabled, setAccessToken } from '@/services/httpClient';
 
 function delay<T>(value: T, ms = 400): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
@@ -108,6 +108,11 @@ export const api = {
       };
     }
     return delay(teacherReportData, 500);
+  },
+
+  async downloadTeacherReportPdf(projectId: string): Promise<Blob> {
+    if (!backendEnabled) return new Blob(['Mock report'], { type: 'application/pdf' });
+    return apiRequestBlob(`/api/v1/projects/${projectId}/teacher-report.pdf`);
   },
 
   // ─── Projects ───────────────────────────────────────────────────────────────
@@ -257,6 +262,12 @@ export const api = {
   async getGithubInstallUrl(projectId: string): Promise<string> {
     if (!backendEnabled) return '#';
     const response = await apiRequest<{ authorizationUrl: string }>(`/api/v1/auth/oauth/github/start?projectId=${encodeURIComponent(projectId)}`);
+    return response.authorizationUrl;
+  },
+
+  async getGoogleConnectUrl(projectId: string, externalId: string): Promise<string> {
+    if (!backendEnabled) return '#';
+    const response = await apiRequest<{ authorizationUrl: string }>(`/api/v1/auth/oauth/google/start?projectId=${encodeURIComponent(projectId)}&externalId=${encodeURIComponent(externalId)}`);
     return response.authorizationUrl;
   },
 

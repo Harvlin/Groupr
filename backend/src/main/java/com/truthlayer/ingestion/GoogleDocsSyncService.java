@@ -7,6 +7,8 @@ import com.truthlayer.contribution.ContributionEventRepository;
 import com.truthlayer.source.ConnectedSourceEntity;
 import com.truthlayer.source.ConnectedSourceRepository;
 import com.truthlayer.source.SourceProvider;
+import com.truthlayer.source.SourceCredentialRepository;
+import com.truthlayer.common.TokenEncryptionService;
 import com.truthlayer.user.UserRepository;
 import java.time.Instant;
 import java.util.UUID;
@@ -23,10 +25,11 @@ public class GoogleDocsSyncService {
     private final UserRepository users;
     private final ObjectMapper objectMapper;
     private final RestClient google;
-    private final String accessToken;
+    private final SourceCredentialRepository credentials;
+    private final TokenEncryptionService encryption;
 
-    public GoogleDocsSyncService(ConnectedSourceRepository sources, RawSourceEventRepository rawEvents, ContributionEventRepository events, UserRepository users, ObjectMapper objectMapper, RestClient.Builder builder, @Value("${truthlayer.google.access-token:}") String accessToken) {
-        this.sources = sources; this.rawEvents = rawEvents; this.events = events; this.users = users; this.objectMapper = objectMapper; this.accessToken = accessToken;
+    public GoogleDocsSyncService(ConnectedSourceRepository sources, RawSourceEventRepository rawEvents, ContributionEventRepository events, UserRepository users, ObjectMapper objectMapper, RestClient.Builder builder, SourceCredentialRepository credentials, TokenEncryptionService encryption) {
+        this.sources = sources; this.rawEvents = rawEvents; this.events = events; this.users = users; this.objectMapper = objectMapper; this.credentials = credentials; this.encryption = encryption;
         this.google = builder.baseUrl("https://www.googleapis.com").defaultHeader("Accept", "application/json").build();
     }
 
@@ -34,7 +37,8 @@ public class GoogleDocsSyncService {
     public int sync(UUID sourceId) {
         var source = sources.findById(sourceId).orElseThrow(() -> new IllegalArgumentException("Source not found"));
         if (source.getProvider() != SourceProvider.GOOGLE_DOCS) throw new IllegalArgumentException("Source is not a Google document");
-        if (accessToken.isBlank()) throw new IllegalArgumentException("Google access is not configured; set GOOGLE_ACCESS_TOKEN for the development sync adapter");
+        var credential = credentials.findById(sourceId).orElseThrow(() -> new IllegalArgumentException("Google OAuth consent is required before syncing"));
+        var accessToken = encryption.decrypt(credential.getEncryptedAccessToken());
         var response = google.get().uri(uri -> uri.path("/drive/v3/files/{fileId}/revisions").queryParam("fields", "revisions(id,modifiedTime,lastModifyingUser)").build(source.getExternalId())).header("Authorization", "Bearer " + accessToken).retrieve().body(JsonNode.class);
         var created = 0;
         for (var revision : response == null ? objectMapper.createArrayNode() : response.path("revisions")) {

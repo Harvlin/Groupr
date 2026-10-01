@@ -27,3 +27,12 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
+
+export async function apiRequestBlob(path: string): Promise<Blob> {
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) throw new Error(`Backend request failed (${response.status})`);
+  return response.blob();
+}

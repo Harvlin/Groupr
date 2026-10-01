@@ -114,6 +114,39 @@ export function PrivacyPage() {
             </li>
           </ul>
         </CardForestPanel>
+
+        <div className="mt-6 space-y-5">
+          <CardFeatureMedia className="p-7">
+            <h2 className="font-display text-xl text-text-primary" style={{ lineHeight: 0.95 }}>
+              How we use data
+            </h2>
+            <p className="mt-3 text-text-secondary body-dense">
+              We use account, project, consent, source, event, score, dispute, and audit data to provide the service, synchronize explicitly connected sources, calculate contribution estimates, protect the service, respond to support requests, and comply with legal obligations. We do not sell student data or use connected project content for advertising.
+            </p>
+          </CardFeatureMedia>
+
+          <CardFeatureMedia className="p-7">
+            <h2 className="font-display text-xl text-text-primary" style={{ lineHeight: 0.95 }}>
+              Third-party processors
+            </h2>
+            <p className="mt-3 text-text-secondary body-dense">
+              Depending on the deployment, Truth Layer may process data through Google, GitHub, Railway, Vercel, PostgreSQL hosting, object storage, email providers, and optional AI providers. Each integration receives only the permissions and data needed for its enabled feature and remains subject to its own privacy terms.
+            </p>
+          </CardFeatureMedia>
+
+          <CardFeatureMedia className="p-7">
+            <h2 className="font-display text-xl text-text-primary" style={{ lineHeight: 0.95 }}>
+              Your choices and requests
+            </h2>
+            <p className="mt-3 text-text-secondary body-dense">
+              You may disconnect a source, revoke consent, request correction, request deletion, or ask how a score was produced through the project administrator or service contact. Some records may be retained when needed for security, dispute resolution, audit integrity, or legal obligations.
+            </p>
+          </CardFeatureMedia>
+        </div>
+
+        <p className="mt-8 text-xs leading-relaxed text-text-tertiary">
+          This is a product privacy-policy draft for the hackathon deployment. Replace the operator name, contact address, retention periods, regional rights, subprocessors, and effective date after legal review.
+        </p>
     </PageContainer>
   );
 }

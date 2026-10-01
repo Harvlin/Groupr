@@ -41,7 +41,9 @@ truthlayer:
     webhook-secret: ${GITHUB_WEBHOOK_SECRET:}
     setup-callback-url: ${GITHUB_SETUP_CALLBACK_URL:http://localhost:8080/api/v1/auth/oauth/github/callback}
   google:
-    access-token: ${GOOGLE_ACCESS_TOKEN:}
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
+    redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/v1/auth/oauth/google/callback}
   ai:
     provider: ${AI_PROVIDER:disabled}
     api-key: ${AI_API_KEY:}
@@ -49,5 +51,6 @@ truthlayer:
   security:
     jwt-secret: ${JWT_SECRET:change-this-development-secret-to-a-long-random-value}
     token-hours: ${JWT_TOKEN_HOURS:12}
+    token-encryption-key: ${TOKEN_ENCRYPTION_KEY:}
   cors:
     allowed-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
