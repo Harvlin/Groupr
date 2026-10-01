@@ -105,7 +105,7 @@ export function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center bg-surface-muted px-4 py-12 font-body">
       <div className="w-full max-w-md rounded-card bg-white p-8 shadow-hairline">
         <Link to="/" className="font-display text-2xl text-text-primary">
-          Truth Layer
+          Groupr
         </Link>
 
         <h1 className="mt-6 text-2xl font-semibold text-text-primary">

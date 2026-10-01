@@ -22,24 +22,20 @@ export function AppLayout({ mode, children }: AppLayoutProps) {
 
   return (
     <TopBarActionsProvider>
-      <div className="flex h-screen overflow-hidden bg-white">
-        {/* Sidebar */}
+      <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', backgroundColor: '#ffffff' }}>
         <AppSidebar
           mode={mode}
           isMobileOpen={mobileOpen}
           onMobileOpenChange={setMobileOpen}
         />
 
-        {/* Content column */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
           <TopBar mode={mode} onMobileMenuOpen={() => setMobileOpen(true)} />
           <main
             id="main-content"
-            className="flex-1 overflow-y-auto bg-white"
+            style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', backgroundColor: '#ecf9f9', minHeight: 0 }}
           >
-            <div className="py-8 lg:py-10">
-              {children ?? <Outlet />}
-            </div>
+            {children ?? <Outlet />}
           </main>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { AlertTriangle, Flag, MessageSquareWarning } from 'lucide-react';
 import { api } from '@/services/api';
 import { ButtonNavCta } from '@/components/ui';
 import { Skeleton } from '@/components/Skeleton';
+import { PageContainer } from '@/components/layout/PageContainer';
 import type { TeacherProjectSummary } from '@/types';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -110,75 +111,73 @@ export default function TeacherDashboardPage() {
   ];
 
   return (
-    <div>
-      <main className="mx-auto max-w-6xl px-6 py-12">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="font-display text-5xl text-text-primary">Supervised projects</h1>
-          <p className="mt-2 text-base text-text-secondary">
-            {activeCount} active project{activeCount !== 1 ? 's' : ''} · {totalStudents} total students
+    <PageContainer width="wide">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="font-display text-5xl text-text-primary">Supervised projects</h1>
+        <p className="mt-2 text-base text-text-secondary">
+          {activeCount} active project{activeCount !== 1 ? 's' : ''} · {totalStudents} total students
+        </p>
+      </div>
+
+      {/* Filter / sort bar */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.map(f => (
+            <button
+              key={f.value}
+              onClick={() => setFilter(f.value)}
+              className={cn(
+                'rounded-control px-4 py-1.5 text-sm font-medium transition-colors',
+                filter === f.value
+                  ? 'bg-accent-lime text-text-primary'
+                  : 'border border-border-hairline text-text-secondary hover:bg-surface-muted'
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <select
+          value={sort}
+          onChange={e => setSort(e.target.value as SortType)}
+          className="rounded-control border border-border-hairline bg-white px-3 py-1.5 text-sm text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-lime"
+        >
+          <option value="deadline_asc">Deadline (soonest)</option>
+          <option value="deadline_desc">Deadline (latest)</option>
+          <option value="name">Name A–Z</option>
+          <option value="issues">Issues first</option>
+        </select>
+      </div>
+
+      {/* Projects list */}
+      {loading ? (
+        <div className="space-y-4">
+          {[1,2,3].map(i => <Skeleton key={i} className="h-32 w-full" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center py-24 text-center">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" className="text-text-tertiary">
+            <rect x="8" y="16" width="48" height="36" rx="3" stroke="currentColor" strokeWidth="2"/>
+            <path d="M8 24h48M20 16V8M44 16V8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            <path d="M22 36h20M22 42h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+          <h2 className="mt-4 text-lg font-semibold text-text-primary">No supervised projects yet</h2>
+          <p className="mt-2 max-w-sm text-sm text-text-secondary">
+            Create a project and assign it to a student team, or ask students to add you when creating theirs.
           </p>
         </div>
-
-        {/* Filter / sort bar */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap gap-2">
-            {FILTERS.map(f => (
-              <button
-                key={f.value}
-                onClick={() => setFilter(f.value)}
-                className={cn(
-                  'rounded-control px-4 py-1.5 text-sm font-medium transition-colors',
-                  filter === f.value
-                    ? 'bg-accent-lime text-text-primary'
-                    : 'border border-border-hairline text-text-secondary hover:bg-surface-muted'
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <select
-            value={sort}
-            onChange={e => setSort(e.target.value as SortType)}
-            className="rounded-control border border-border-hairline bg-white px-3 py-1.5 text-sm text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-lime"
-          >
-            <option value="deadline_asc">Deadline (soonest)</option>
-            <option value="deadline_desc">Deadline (latest)</option>
-            <option value="name">Name A–Z</option>
-            <option value="issues">Issues first</option>
-          </select>
+      ) : (
+        <div className="space-y-4">
+          {filtered.map(p => (
+            <ProjectRow key={p.projectId} project={p} />
+          ))}
         </div>
+      )}
 
-        {/* Projects list */}
-        {loading ? (
-          <div className="space-y-4">
-            {[1,2,3].map(i => <Skeleton key={i} className="h-32 w-full" />)}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center py-24 text-center">
-            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" className="text-text-tertiary">
-              <rect x="8" y="16" width="48" height="36" rx="3" stroke="currentColor" strokeWidth="2"/>
-              <path d="M8 24h48M20 16V8M44 16V8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M22 36h20M22 42h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            <h2 className="mt-4 text-lg font-semibold text-text-primary">No supervised projects yet</h2>
-            <p className="mt-2 max-w-sm text-sm text-text-secondary">
-              Create a project and assign it to a student team, or ask students to add you when creating theirs.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filtered.map(p => (
-              <ProjectRow key={p.projectId} project={p} />
-            ))}
-          </div>
-        )}
-
-        <div className="mt-12 border-t border-border-hairline/20 pt-6">
-          <Link to="/projects" className="text-sm text-accent-blue hover:underline">← Back to your student projects</Link>
-        </div>
-      </main>
-    </div>
+      <div className="mt-12 border-t border-border-hairline/20 pt-6">
+        <Link to="/projects" className="text-sm text-accent-blue hover:underline">← Back to your student projects</Link>
+      </div>
+    </PageContainer>
   );
 }

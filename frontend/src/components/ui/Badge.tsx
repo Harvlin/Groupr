@@ -8,9 +8,9 @@ interface StatusBadgeProps {
 }
 
 const styles: Record<ConfidenceLevel, string> = {
-  high: 'bg-accent-positive text-white',
-  medium: 'bg-[#B8860B] text-white',
-  low: 'bg-accent-warning text-white',
+  high: 'border border-accent-positive text-accent-positive bg-transparent',
+  medium: 'border border-accent-medium text-accent-medium bg-transparent',
+  low: 'border border-accent-warning text-accent-warning bg-transparent',
 };
 
 const defaultLabels: Record<ConfidenceLevel, string> = {
@@ -23,7 +23,7 @@ export function StatusBadge({ level, label, className }: StatusBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-control px-3 py-1 text-xs font-semibold',
+        'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium',
         styles[level],
         className
       )}

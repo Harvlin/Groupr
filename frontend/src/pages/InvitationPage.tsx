@@ -102,7 +102,7 @@ export default function InvitationPage() {
             <>
               {/* Wordmark */}
               <Link to="/" className="mb-6 block font-display text-xl text-text-primary">
-                Truth Layer
+                Groupr
               </Link>
 
               {/* Inviter */}

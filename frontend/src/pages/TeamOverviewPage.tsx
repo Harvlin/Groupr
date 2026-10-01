@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { Avatar, getInitials } from '@/components/ui/Avatar';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useProject } from '@/hooks/useProject';
 import {
   ButtonGlassUtility,
+  Card,
   CardFeatureMedia,
   StatusBadge,
 } from '@/components/ui';
@@ -17,9 +27,8 @@ import type {
   ContributionScore,
   TeacherReportData,
 } from '@/types';
-
 import { getMemberColor } from '@/utils/memberColors';
-import { getInitials } from '@/components/ui/Avatar';
+
 const CATEGORY_COLUMNS: {
   key: ContributionCategory[];
   label: string;
@@ -30,6 +39,15 @@ const CATEGORY_COLUMNS: {
   { key: ['coordination'], label: 'Coordination' },
   { key: ['coding'], label: 'Coding' },
 ];
+
+const weeklyActivityMap: Record<string, { weeklyActivity: number[]; hasLateSpike: boolean }> = {
+  'u-1': { weeklyActivity: [120, 340, 280, 410, 390, 180], hasLateSpike: false },
+  'u-2': { weeklyActivity: [0, 80, 160, 200, 520, 890], hasLateSpike: true },
+  'u-3': { weeklyActivity: [200, 180, 220, 160, 140, 120], hasLateSpike: false },
+  'u-4': { weeklyActivity: [40, 60, 20, 80, 100, 60], hasLateSpike: false },
+};
+
+const weeklyChartLabels = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6'];
 
 function formatDateLabel(iso: string | undefined) {
   if (!iso) return null;
@@ -132,10 +150,7 @@ export function TeamOverviewPage() {
 
   const categoryStats = useMemo(() => {
     if (!reportData?.events) return {};
-    const stats: Record<
-      string,
-      { category: ContributionCategory; total: number; percentage: number }[]
-    > = {};
+    const stats: Record<string, { category: ContributionCategory; total: number; percentage: number }[]> = {};
     members.forEach((m) => {
       const userEvents = reportData.events.filter((e) => e.userId === m.userId && e.category);
       const totals: Partial<Record<ContributionCategory, number>> = {};
@@ -155,18 +170,46 @@ export function TeamOverviewPage() {
     return stats;
   }, [reportData, members]);
 
+  const topContributor = orderedMembers[0];
+  const mostAtRisk = orderedMembers[orderedMembers.length - 1];
+  const distributionGap =
+    Math.max(...orderedMembers.map((member) => scoresByUser[member.userId]?.finalPercentage ?? 0)) -
+    Math.min(...orderedMembers.map((member) => scoresByUser[member.userId]?.finalPercentage ?? 0));
+
+  const weeklyChartData = useMemo(
+    () =>
+      weeklyChartLabels.map((week, weekIndex) => {
+        const row: Record<string, string | number> = { week };
+
+        orderedMembers.forEach((member) => {
+          row[member.userId] = weeklyActivityMap[member.userId]?.weeklyActivity[weekIndex] ?? 0;
+        });
+
+        return row;
+      }),
+    [orderedMembers]
+  );
+
+  const weeklyChartConfig = useMemo(
+    () =>
+      orderedMembers.reduce<Record<string, { label: string; color: string }>>((acc, member, index) => {
+        acc[member.userId] = {
+          label: member.user.name,
+          color: getMemberColor(index),
+        };
+        return acc;
+      }, {}),
+    [orderedMembers]
+  );
+
   if (projectLoading || loading || !project) {
     return <TeacherReportSkeleton />;
   }
 
   return (
     <PageContainer width="wide">
-      {/* Header */}
       <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <h1
-          className="font-display text-3xl text-text-primary"
-          style={{ lineHeight: 0.9 }}
-        >
+        <h1 className="font-display text-3xl text-text-primary" style={{ lineHeight: 0.9 }}>
           {project.name}
         </h1>
         {project.deadline && (
@@ -176,7 +219,6 @@ export function TeamOverviewPage() {
         )}
       </div>
 
-      {/* Early warning banner */}
       {warningInfo && !dismissed && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
@@ -206,9 +248,7 @@ export function TeamOverviewPage() {
           </svg>
           <div className="flex-1">
             <p className="text-sm text-accent-warning">
-              Contribution imbalance detected — {warningInfo.member.user.name} has contributed
-              less than 15% with {warningInfo.daysRemaining} day
-              {warningInfo.daysRemaining === 1 ? '' : 's'} remaining. Coach Mode has suggestions.
+              Contribution imbalance detected — {warningInfo.member.user.name} has contributed less than 15% with {warningInfo.daysRemaining} day{warningInfo.daysRemaining === 1 ? '' : 's'} remaining. Coach Mode has suggestions.
             </p>
           </div>
           <button
@@ -227,14 +267,11 @@ export function TeamOverviewPage() {
         </motion.div>
       )}
 
-      {/* Team contribution overview */}
       <CardFeatureMedia className="mb-6 p-8 md:p-10">
-        <h2 className="font-body text-base font-semibold text-text-secondary">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
           Team contributions
-        </h2>
-        <p className="mt-1 font-body text-sm text-text-tertiary">
-          Last updated {scores.length > 0 ? formatDistanceToNow(new Date(scores[0].computedAt), { addSuffix: true }) : 'recently'}
-        </p>
+        </span>
+        <p className="mt-1 text-sm text-text-tertiary">Score last updated · 3 min ago</p>
 
         <div className="mt-6 space-y-5">
           {orderedMembers.map((member) => {
@@ -272,9 +309,7 @@ export function TeamOverviewPage() {
                   <span className="w-10 text-right font-body text-sm font-bold text-text-primary">
                     {pct}%
                   </span>
-                  {score && (
-                    <StatusBadge level={score.confidenceLevel} className="shrink-0" />
-                  )}
+                  {score && <StatusBadge level={score.confidenceLevel} className="shrink-0" />}
                 </div>
               </button>
             );
@@ -282,20 +317,133 @@ export function TeamOverviewPage() {
         </div>
       </CardFeatureMedia>
 
-      {/* Category breakdown matrix */}
-      <CardFeatureMedia className="mb-6 p-8 md:p-10">
-        <h2 className="mb-4 font-body text-base font-semibold text-text-secondary">
+      <CardFeatureMedia className="mt-5 p-6 md:p-8">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+            Activity over time
+          </span>
+          <span className="text-xs text-text-tertiary">Last 6 weeks</span>
+        </div>
+
+        <div className="h-[280px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={weeklyChartData} margin={{ top: 10, right: 16, left: 8, bottom: 8 }}>
+              <CartesianGrid vertical={false} stroke="#dfe5e2" strokeDasharray="3 3" />
+              <XAxis
+                dataKey="week"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tick={{ fill: '#6a6c6a', fontSize: 12 }}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                width={38}
+                tick={{ fill: '#6a6c6a', fontSize: 12 }}
+              />
+              <Tooltip
+                cursor={{ stroke: '#dfe5e2', strokeDasharray: '4 4' }}
+                contentStyle={{
+                  background: '#ffffff',
+                  border: '1px solid #dfe5e2',
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 24px rgba(16, 16, 8, 0.08)',
+                }}
+                formatter={(value: number | string) => [`${value} pts`, 'Activity']}
+                labelFormatter={(label) => `Week ${label}`}
+              />
+
+              {orderedMembers.map((member, index) => {
+                const color = weeklyChartConfig[member.userId]?.color ?? getMemberColor(index);
+
+                return (
+                  <Line
+                    key={member.userId}
+                    type="monotone"
+                    dataKey={member.userId}
+                    stroke={color}
+                    strokeWidth={2.5}
+                    dot={{ r: 3, fill: color }}
+                    activeDot={{ r: 5 }}
+                  />
+                );
+              })}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          {orderedMembers.map((member, index) => {
+            const color = weeklyChartConfig[member.userId]?.color ?? getMemberColor(index);
+
+            return (
+              <div key={member.userId} className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                <span className="text-xs text-text-secondary">{member.user.name}</span>
+              </div>
+            );
+          })}
+        </div>
+      </CardFeatureMedia>
+
+      <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card padding="md">
+          <span className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+            Top contributor
+          </span>
+          <div className="mt-2 flex items-center gap-2">
+            <Avatar initials={getInitials(topContributor?.user.name ?? 'A')}
+              colorIndex={0}
+              size={32}
+            />
+            <div>
+              <p className="text-body-md font-semibold text-text-primary">{topContributor?.user.name}</p>
+              <p className="text-body-sm text-text-tertiary">{scoresByUser[topContributor.userId]?.finalPercentage ?? 0}% of project</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card padding="md">
+          <span className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+            Most at-risk
+          </span>
+          <div className="mt-2 flex items-center gap-2">
+            <Avatar initials={getInitials(mostAtRisk?.user.name ?? 'A')} colorIndex={orderedMembers.length - 1} size={32} />
+            <div>
+              <p className="text-body-md font-semibold text-text-primary">{mostAtRisk?.user.name}</p>
+              <p className="text-body-sm text-accent-warning">
+                {scoresByUser[mostAtRisk.userId]?.finalPercentage ?? 0}% · below threshold
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card padding="md">
+          <span className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+            Distribution gap
+          </span>
+          <div className="mt-2">
+            <p className="font-display text-[36px] leading-none text-text-primary">
+              {distributionGap}
+              <span className="text-[20px]">pp</span>
+            </p>
+            <p className="text-body-sm text-text-tertiary">between highest and lowest</p>
+          </div>
+        </Card>
+      </div>
+
+      <CardFeatureMedia className="mt-5 p-8 md:p-10">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
           What everyone worked on
-        </h2>
-        <div className="overflow-x-auto">
-          <div className="min-w-[560px] rounded-none border border-black/10 bg-white">
-            {/* Header row */}
+        </span>
+        <div className="mt-4 overflow-x-auto">
+          <div className="min-w-[560px] rounded-card border border-hairline bg-white">
             <div className="grid grid-cols-[180px_repeat(5,minmax(0,1fr))] border-b border-black/5 px-4 py-3 text-xs font-semibold text-text-secondary">
               <span>Member</span>
-              {CATEGORY_COLUMNS.map((c) => (
-                <span key={c.label} className="text-center">
-                  {c.label}
-                </span>
+              {CATEGORY_COLUMNS.map((column) => (
+                <span key={column.label} className="text-center">{column.label}</span>
               ))}
             </div>
 
@@ -323,23 +471,20 @@ export function TeamOverviewPage() {
                   {stats.map((stat) => (
                     <div
                       key={stat.category}
-                      className="flex items-center justify-center gap-2"
+                      className={`flex items-center justify-center gap-2 px-4 py-3 ${
+                        stat.percentage > 0 ? 'bg-transparent' : 'bg-surface-muted/30'
+                      }`}
                     >
                       {stat.percentage > 0 ? (
                         <>
                           <div
-                            className="h-4 w-4 shrink-0"
-                            style={{
-                              backgroundColor: color,
-                              opacity: Math.max(0.1, stat.percentage / 100),
-                            }}
+                            className="h-4 w-4 shrink-0 rounded-sm"
+                            style={{ backgroundColor: color, opacity: Math.max(0.1, stat.percentage / 100) }}
                           />
-                          <span className="text-sm text-text-primary">
-                            {stat.percentage}%
-                          </span>
+                          <span className="text-sm text-text-primary">{stat.percentage}%</span>
                         </>
                       ) : (
-                        <span className="text-sm text-text-tertiary">—</span>
+                        <div className="h-full w-full" />
                       )}
                     </div>
                   ))}
@@ -349,89 +494,6 @@ export function TeamOverviewPage() {
           </div>
         </div>
       </CardFeatureMedia>
-
-      {/* Individual member cards */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {orderedMembers.map((member) => {
-          const score = scoresByUser[member.userId];
-          const stats = categoryStats[member.userId] ?? [];
-          const topCategories = [...stats]
-            .filter((s) => s.percentage > 0)
-            .sort((a, b) => b.percentage - a.percentage)
-            .slice(0, 3);
-          const hasDispute = reportData?.disputes.some(
-            (d) => d.userId === member.userId && d.status === 'open'
-          );
-          const color = memberColors[member.userId];
-          const pct = score?.manualOverridePercentage ?? score?.finalPercentage ?? 0;
-
-          return (
-            <motion.button
-              key={member.userId}
-              whileHover={{ y: -2 }}
-              transition={{ duration: 0.2 }}
-              onClick={() => navigate(`/projects/${projectId}/dashboard?member=${member.userId}`)}
-              className="text-left"
-            >
-              <CardFeatureMedia className="h-full p-6 md:p-8">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="flex h-12 w-12 items-center justify-center rounded-full font-semibold text-text-primary"
-                      style={{ backgroundColor: color }}
-                    >
-                      {getInitials(member.user.name)}
-                    </div>
-                    <div>
-                      <p className="font-body text-base font-semibold text-text-primary">
-                        {member.user.name}
-                      </p>
-                      <span
-                        className={`mt-1 inline-block rounded-control px-2 py-0.5 text-xs font-semibold ${
-                          member.role === 'leader'
-                            ? 'bg-accent-lime text-text-primary'
-                            : 'border border-black/10 text-text-secondary'
-                        }`}
-                      >
-                        {member.role === 'leader' ? 'Leader' : 'Member'}
-                      </span>
-                    </div>
-                  </div>
-                  {hasDispute && (
-                    <span className="rounded-control bg-accent-warning/10 px-2 py-0.5 text-xs font-semibold text-accent-warning">
-                      dispute pending
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-6 flex items-end gap-4">
-                  <span
-                    className="font-display text-3xl text-text-primary"
-                    style={{ lineHeight: 0.9 }}
-                  >
-                    {pct}%
-                  </span>
-                  {score && <StatusBadge level={score.confidenceLevel} />}
-                </div>
-
-                {topCategories.length > 0 && (
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {topCategories.map((cat) => (
-                      <span
-                        key={cat.category}
-                        className="rounded-control border border-black/10 px-2 py-1 text-xs text-text-primary"
-                      >
-                        {CATEGORY_COLUMNS.find((c) => c.key.includes(cat.category))?.label ??
-                          cat.category}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </CardFeatureMedia>
-            </motion.button>
-          );
-        })}
-      </div>
     </PageContainer>
   );
 }

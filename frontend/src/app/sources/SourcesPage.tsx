@@ -174,9 +174,9 @@ export function SourcesPage() {
           </div>
 
           <CardFeatureMedia className="h-fit">
-            <h2 className="font-display text-xl text-text-primary" style={{ lineHeight: 0.95 }}>
+            <span className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
               Connect a source
-            </h2>
+            </span>
             <p className="mt-2 text-sm text-text-secondary">
               Every team member must consent before ingestion begins.
             </p>

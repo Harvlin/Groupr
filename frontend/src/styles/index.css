@@ -27,12 +27,19 @@
     --easing-in-out: ease-in-out;
   }
 
+  html, body, #root {
+    margin: 0;
+    height: 100%;
+    min-height: 100%;
+  }
+
   html {
     scroll-behavior: smooth;
   }
 
   body {
     @apply bg-background text-text-primary font-body antialiased;
+    overflow: hidden;
     font-feature-settings: 'cv11', 'ss01';
     font-variation-settings: 'opsz' 32;
   }

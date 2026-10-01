@@ -300,7 +300,7 @@ export function CoachModePage() {
           Why these suggestions?
         </h2>
         <p className="mt-4 max-w-2xl font-body text-base text-white/80">
-          Truth Layer weights contributions by when they happened, not just how
+          Groupr weights contributions by when they happened, not just how
           much happened. Work clustered at the very end of a project scores
           lower than steady contribution across the full timeline. We also look
           at unique content delta — repeated or pasted material doesn't count as

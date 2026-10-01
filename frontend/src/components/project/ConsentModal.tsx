@@ -51,13 +51,13 @@ export function ConsentModal({ onClose }: ConsentModalProps) {
         </h2>
 
         <p className="mt-4 text-base text-text-secondary">
-          This project uses Truth Layer to automatically track contributions from connected
+          This project uses Groupr to automatically track contributions from connected
           sources (e.g. Google Docs, GitHub). This helps your team get fair credit for the
           work each person does.
         </p>
 
         <p className="mt-3 text-sm text-text-secondary">
-          Truth Layer only reads activity data from the specific sources your team connected —
+          Groupr only reads activity data from the specific sources your team connected —
           not your broader Google Drive, GitHub account, or any other files.
         </p>
 

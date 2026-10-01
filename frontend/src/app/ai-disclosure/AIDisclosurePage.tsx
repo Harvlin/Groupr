@@ -131,12 +131,9 @@ export function AIDisclosurePage() {
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent-lime text-surface-forest">
                 <FileText size={24} />
               </div>
-              <h3
-                className="font-display text-xl text-accent-lime"
-                style={{ lineHeight: 0.95 }}
-              >
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-accent-lime">
                 Disclosure summary
-              </h3>
+              </span>
               <p className="mt-3 text-sm text-accent-lime/90">
                 {events.length} contribution{events.length === 1 ? '' : 's'} from this
                 project matched heuristic patterns that sometimes correlate with

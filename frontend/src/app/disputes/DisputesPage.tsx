@@ -79,9 +79,9 @@ export function DisputesPage() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <CardFeatureMedia>
-            <h2 className="font-display text-xl text-text-primary" style={{ lineHeight: 0.95 }}>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
               Submit a new dispute
-            </h2>
+            </span>
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-text-primary">
@@ -104,9 +104,9 @@ export function DisputesPage() {
           </CardFeatureMedia>
 
           <div>
-            <h2 className="font-display text-xl text-text-primary" style={{ lineHeight: 0.95 }}>
+            <span className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
               Your disputes
-            </h2>
+            </span>
             {isLoading ? (
               <div className="mt-4 space-y-4">
                 {[1, 2].map((i) => (

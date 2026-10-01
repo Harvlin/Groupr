@@ -81,7 +81,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 className="font-display text-xl tracking-tight text-text-primary"
                 style={{ lineHeight: 0.9 }}
               >
-                Truth Layer
+                Groupr
               </span>
             </Link>
 

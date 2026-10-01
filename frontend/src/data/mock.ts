@@ -58,7 +58,7 @@ export const project: Project = {
   description: 'Building a tool to objectively verify group-work contribution.',
   createdBy: 'u-1',
   createdAt: '2026-08-15T09:00:00Z',
-  deadline: '2026-09-23T23:59:00Z',
+  deadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] + 'T23:59:00Z',
   status: 'active',
 };
 
@@ -70,6 +70,13 @@ export const members: ProjectMember[] = users.map((user, index) => ({
   joinedAt: project.createdAt,
   user,
 }));
+
+export const mockMembers = [
+  { ...members[0], weeklyActivity: [120, 340, 280, 410, 390, 180], hasLateSpike: false },
+  { ...members[1], weeklyActivity: [0, 80, 160, 200, 520, 890], hasLateSpike: true },
+  { ...members[2], weeklyActivity: [200, 180, 220, 160, 140, 120], hasLateSpike: false },
+  { ...members[3], weeklyActivity: [40, 60, 20, 80, 100, 60], hasLateSpike: false },
+];
 
 export const sources: ConnectedSource[] = [
   {
@@ -371,7 +378,7 @@ export const mockProjects: ProjectSummary[] = [
     id: 'project1',
     name: 'CSC Innovation Award — Group Contribution Study',
     subject: 'Computer Science',
-    deadline: '2026-09-23',
+    deadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: 'active',
     memberCount: 4,
     sourceCount: 3,
@@ -382,7 +389,7 @@ export const mockProjects: ProjectSummary[] = [
     id: 'project2',
     name: 'History Essay — Colonialism',
     subject: 'History',
-    deadline: '2026-09-20',
+    deadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: 'active',
     memberCount: 3,
     sourceCount: 1,
@@ -393,7 +400,7 @@ export const mockProjects: ProjectSummary[] = [
     id: 'project3',
     name: 'Biology Lab Report',
     subject: 'Biology',
-    deadline: '2026-08-30',
+    deadline: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: 'completed',
     memberCount: 4,
     sourceCount: 2,
@@ -710,7 +717,7 @@ export const mockTeacherProjects: TeacherProjectSummary[] = [
     projectId: 'project1',
     projectName: 'CSC Innovation Award — Group Contribution Study',
     subject: 'Computer Science',
-    deadline: '2026-09-23',
+    deadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     teamSize: 4,
     status: 'active',
     hasImbalance: true,
@@ -722,7 +729,7 @@ export const mockTeacherProjects: TeacherProjectSummary[] = [
     projectId: 'project2',
     projectName: 'History Essay — Colonialism',
     subject: 'History',
-    deadline: '2026-09-20',
+    deadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     teamSize: 3,
     status: 'active',
     hasImbalance: false,
@@ -734,7 +741,7 @@ export const mockTeacherProjects: TeacherProjectSummary[] = [
     projectId: 'project3',
     projectName: 'Biology Lab Report',
     subject: 'Biology',
-    deadline: '2026-08-30',
+    deadline: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     teamSize: 4,
     status: 'finalised',
     hasImbalance: false,

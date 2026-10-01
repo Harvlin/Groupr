@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/useToast';
 import { ButtonPrimaryHero, ButtonGlassUtility } from '@/components/ui';
 import { getInitials } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/Skeleton';
+import { PageContainer } from '@/components/layout/PageContainer';
 import type { ContributionHistoryEntry } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -121,57 +122,55 @@ export default function ProfilePage() {
   const initials = getInitials(profile.name || currentUser?.name || 'U');
 
   return (
-    <div>
-      <main className="mx-auto max-w-3xl px-6 py-12">
-        {/* Profile card */}
-        <div className="mb-8 rounded-card border border-border-hairline bg-white p-8 text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-accent-lime font-display text-4xl font-black text-text-primary">
-            {initials}
-          </div>
-          <h1 className="mt-4 font-display text-4xl text-text-primary">{profile.name || currentUser?.name}</h1>
-          <div className="mt-3 flex flex-wrap justify-center gap-2">
-            <span className="rounded-hairline border border-border-hairline/40 px-2.5 py-1 text-sm text-text-secondary">{profile.school}</span>
-            <span className="rounded-hairline border border-border-hairline/40 px-2.5 py-1 text-sm text-text-secondary">{profile.grade}</span>
-          </div>
-          <div className="mt-3 flex justify-center">
-            <span className={cn('rounded-control px-3 py-1 text-xs font-semibold', currentUser?.role === 'teacher' ? 'bg-surface-forest text-accent-lime' : 'bg-accent-positive/10 text-accent-positive')}>
-              {currentUser?.role === 'teacher' ? 'Teacher' : 'Student'}
-            </span>
-          </div>
-          <ButtonGlassUtility onClick={() => setEditOpen(true)} className="mt-6">Edit profile</ButtonGlassUtility>
+    <PageContainer width="medium">
+      {/* Profile card */}
+      <div className="mb-8 rounded-card border border-border-hairline bg-white p-8 text-center">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-accent-lime font-display text-4xl font-black text-text-primary">
+          {initials}
         </div>
+        <h1 className="mt-4 font-display text-4xl text-text-primary">{profile.name || currentUser?.name}</h1>
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          <span className="rounded-hairline border border-border-hairline/40 px-2.5 py-1 text-sm text-text-secondary">{profile.school}</span>
+          <span className="rounded-hairline border border-border-hairline/40 px-2.5 py-1 text-sm text-text-secondary">{profile.grade}</span>
+        </div>
+        <div className="mt-3 flex justify-center">
+          <span className={cn('rounded-control px-3 py-1 text-xs font-semibold', currentUser?.role === 'teacher' ? 'bg-surface-forest text-accent-lime' : 'bg-accent-positive/10 text-accent-positive')}>
+            {currentUser?.role === 'teacher' ? 'Teacher' : 'Student'}
+          </span>
+        </div>
+        <ButtonGlassUtility onClick={() => setEditOpen(true)} className="mt-6">Edit profile</ButtonGlassUtility>
+      </div>
 
-        {/* Contribution history (students only) */}
-        {currentUser?.role !== 'teacher' && (
-          <section className="mb-8">
-            <h2 className="mb-4 text-base font-semibold text-text-secondary">Your project history</h2>
-            {historyLoading ? (
-              <div className="space-y-3">
-                {[1,2,3].map(i => <Skeleton key={i} className="h-20 w-full" />)}
-              </div>
-            ) : history.length === 0 ? (
-              <p className="py-8 text-center text-sm text-text-tertiary">No completed projects yet.</p>
-            ) : (
-              <div className="rounded-card border border-border-hairline bg-white px-6">
-                {history.map(e => <HistoryRow key={e.projectId} entry={e} />)}
-              </div>
-            )}
-          </section>
-        )}
+      {/* Contribution history (students only) */}
+      {currentUser?.role !== 'teacher' && (
+        <section className="mb-8">
+          <h2 className="mb-4 text-base font-semibold text-text-secondary">Your project history</h2>
+          {historyLoading ? (
+            <div className="space-y-3">
+              {[1,2,3].map(i => <Skeleton key={i} className="h-20 w-full" />)}
+            </div>
+          ) : history.length === 0 ? (
+            <p className="py-8 text-center text-sm text-text-tertiary">No completed projects yet.</p>
+          ) : (
+            <div className="rounded-card border border-border-hairline bg-white px-6">
+              {history.map(e => <HistoryRow key={e.projectId} entry={e} />)}
+            </div>
+          )}
+        </section>
+      )}
 
-        {/* Export */}
-        {currentUser?.role !== 'teacher' && (
-          <section>
-            <h2 className="mb-2 text-sm font-semibold text-text-secondary">Export your contribution summary</h2>
-            <p className="mb-4 text-sm text-text-secondary">
-              Download a one-page summary of your contribution record across all Truth Layer projects. Useful for portfolios or applications.
-            </p>
-            <ButtonPrimaryHero onClick={handleDownload} disabled={downloading}>
-              {downloading ? 'Preparing…' : 'Download summary'}
-            </ButtonPrimaryHero>
-          </section>
-        )}
-      </main>
+      {/* Export */}
+      {currentUser?.role !== 'teacher' && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold text-text-secondary">Export your contribution summary</h2>
+          <p className="mb-4 text-sm text-text-secondary">
+            Download a one-page summary of your contribution record across all Groupr projects. Useful for portfolios or applications.
+          </p>
+          <ButtonPrimaryHero onClick={handleDownload} disabled={downloading}>
+            {downloading ? 'Preparing…' : 'Download summary'}
+          </ButtonPrimaryHero>
+        </section>
+      )}
 
       {editOpen && (
         <EditProfileModal
@@ -182,6 +181,6 @@ export default function ProfilePage() {
           onClose={() => setEditOpen(false)}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

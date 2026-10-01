@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { CheckCircle, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { ProjectExtended, MemberConsent } from '@/types';
 
 interface Step {
@@ -55,10 +55,10 @@ export function SetupGuideCard() {
 
   const allComplete = steps.every((s) => s.done);
 
-  const handleDismiss = () => {
+  const handleDismiss = useCallback(() => {
     setDismissed(true);
     localStorage.setItem(storageKey, 'true');
-  };
+  }, [storageKey]);
 
   useEffect(() => {
     if (allComplete) {
@@ -69,7 +69,7 @@ export function SetupGuideCard() {
         clearTimeout(dismiss);
       };
     }
-  }, [allComplete, projectId]);
+  }, [allComplete, projectId, handleDismiss]);
 
   if (dismissed) return null;
 
@@ -85,7 +85,7 @@ export function SetupGuideCard() {
         <div className="flex items-center gap-2 text-accent-positive">
           <CheckCircle size={20} />
           <span className="text-sm font-medium text-text-primary">
-            You&apos;re all set. Truth Layer is actively tracking contributions.
+            You&apos;re all set. Groupr is actively tracking contributions.
           </span>
         </div>
       ) : (

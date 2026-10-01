@@ -12,7 +12,9 @@ import { cn } from '@/lib/utils';
 function Section({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
     <section id={id} className="border-b border-border-hairline/20 py-8 last:border-0">
-      <h2 className="mb-4 text-base font-semibold text-text-secondary">{title}</h2>
+      <span className="mb-4 block text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+        {title}
+      </span>
       {children}
     </section>
   );

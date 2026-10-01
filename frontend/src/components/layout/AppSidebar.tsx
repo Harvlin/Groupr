@@ -181,7 +181,7 @@ export function AppSidebar({ mode, isMobileOpen, onMobileOpenChange }: AppSideba
             to={mode === 'global' ? '/projects' : `/projects/${projectId}/dashboard`}
             className="font-display text-[20px] font-black tracking-tight text-text-primary"
           >
-            Truth Layer
+            Groupr
           </Link>
         )}
         <button
@@ -397,7 +397,7 @@ export function AppSidebar({ mode, isMobileOpen, onMobileOpenChange }: AppSideba
               <div className="flex h-full flex-col border-r border-black/[0.06] bg-white">
                 <div className="flex h-16 shrink-0 items-center border-b border-black/[0.06] px-4">
                   <span className="font-display text-[20px] font-black tracking-tight text-text-primary">
-                    Truth Layer
+                    Groupr
                   </span>
                 </div>
                 <nav aria-label="Main navigation" className="flex-1 overflow-y-auto px-3 py-4">
