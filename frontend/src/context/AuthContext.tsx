@@ -23,7 +23,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const parsed = JSON.parse(stored) as AuthUser;
         setCurrentUser(parsed);
-        // Cast to any to bypass type mismatch between AuthUser and SessionUser if api.setCurrentUser expects SessionUser
         api.setCurrentUser(parsed as any);
       } catch {
         localStorage.removeItem(STORAGE_KEY);
@@ -42,21 +41,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  /** Build an AuthUser from the raw backend AuthResponse shape */
+  function buildAuthUser(raw: any, roleOverride?: 'student' | 'teacher'): AuthUser {
+    const name: string = raw.name ?? raw.displayName ?? '';
+    const role: 'student' | 'teacher' = roleOverride ?? (raw.role === 'teacher' ? 'teacher' : 'student');
+    // Derive initials client-side as a fallback in case the backend omits them
+    const avatarInitials: string =
+      raw.avatarInitials ||
+      name
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((w: string) => w[0])
+        .join('')
+        .toUpperCase() ||
+      '?';
+    return {
+      id: raw.id,
+      name,
+      email: raw.email,
+      role,
+      school: raw.school ?? null,
+      grade: raw.grade ?? null,
+      avatarInitials,
+      createdAt: raw.createdAt ?? new Date().toISOString(),
+    };
+  }
+
   const login = useCallback(
     async (email: string, password: string) => {
-      // In real app, api.login returns AuthUser. Here we might need to cast
-      const user = await api.login(email, password) as unknown as AuthUser;
-      
-      // Temporary mock mapping if the mock user doesn't have all AuthUser fields
-      const authUser: AuthUser = {
-        ...user,
-        role: user.role === 'teacher' ? 'teacher' : 'student',
-        school: (user as any).school || 'Default School',
-        grade: (user as any).grade || 'Grade 12',
-        avatarInitials: (user as any).avatarInitials || user.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase(),
-        createdAt: (user as any).createdAt || new Date().toISOString()
-      };
-      
+      const raw = await api.login(email, password);
+      const authUser = buildAuthUser(raw);
       persist(authUser);
       return authUser;
     },
@@ -70,17 +85,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password: string,
       role: 'student' | 'teacher'
     ) => {
-      const user = await api.register(name, email, password, role) as unknown as AuthUser;
-      
-      const authUser: AuthUser = {
-        ...user,
-        role,
-        school: 'Default School',
-        grade: 'Grade 12',
-        avatarInitials: name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase(),
-        createdAt: new Date().toISOString()
-      };
-      
+      const raw = await api.register(name, email, password, role);
+      // Pass the intended role as override since the backend echoes the stored role
+      // and a brand-new account might not have school/grade yet
+      const authUser = buildAuthUser(raw, role);
       persist(authUser);
       return authUser;
     },

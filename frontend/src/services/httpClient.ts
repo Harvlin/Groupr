@@ -1,4 +1,13 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+// Normalise the base URL: strip trailing slash, and add https:// if the
+// user accidentally set the env var without a protocol (e.g. "foo.railway.app").
+function normaliseBaseUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/$/, '');
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+const API_BASE_URL = normaliseBaseUrl(import.meta.env.VITE_API_BASE_URL ?? '');
 const ACCESS_TOKEN_KEY = 'truth_layer_access_token';
 
 export const backendEnabled = API_BASE_URL.length > 0;
@@ -20,8 +29,9 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   });
 
   if (!response.ok) {
-    const problem = await response.json().catch(() => null) as { detail?: string } | null;
-    throw new Error(problem?.detail ?? `Backend request failed (${response.status})`);
+    // Spring Boot's ProblemDetail uses 'detail'; fallback to 'message' for other shapes
+    const problem = await response.json().catch(() => null) as { detail?: string; message?: string } | null;
+    throw new Error(problem?.detail ?? problem?.message ?? `Backend request failed (${response.status})`);
   }
 
   if (response.status === 204) return undefined as T;

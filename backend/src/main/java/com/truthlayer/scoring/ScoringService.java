@@ -49,7 +49,7 @@ public class ScoringService {
 
     @Transactional
     public List<ScoringDtos.ScoreResponse> calculate(UUID actorId, UUID projectId) {
-        projects.get(projectId == null ? actorId : actorId, projectId);
+        projects.get(actorId, projectId);
         var project = projectRepository.findById(projectId).orElseThrow(() -> new IllegalArgumentException("Project not found"));
         var previous = calculations.findTopByProjectIdOrderByCalculationVersionDesc(projectId).map(ScoreCalculationEntity::getCalculationVersion).orElse(0);
         var calculation = calculations.save(new ScoreCalculationEntity(projectId, previous + 1, ALGORITHM_VERSION));

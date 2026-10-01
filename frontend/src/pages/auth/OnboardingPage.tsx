@@ -117,7 +117,18 @@ export function OnboardingPage() {
   const handleFinish = async () => {
     setFinishError('');
     try {
-      await api.createProject({ name: projectName, deadline });
+      const created = await api.createProject({ name: projectName, deadline });
+
+      // Send invitations to all non-self members added in step 3
+      const guests = members.filter((m) => !m.isSelf);
+      if (guests.length > 0) {
+        await Promise.allSettled(
+          guests.map((m) =>
+            api.sendInvitation(created.id, m.email, m.role)
+          )
+        );
+      }
+
       navigate('/projects');
     } catch {
       setFinishError('Could not create project. Please try again.');

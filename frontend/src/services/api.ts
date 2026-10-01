@@ -147,14 +147,22 @@ export const api = {
 
   async createProject(data: Partial<ProjectSummary>): Promise<ProjectSummary> {
     if (backendEnabled) {
+      // Spring Boot's Instant deserializer needs a full ISO-8601 timestamp.
+      // The date picker sends "YYYY-MM-DD" — append T00:00:00Z if needed.
+      const deadline = data.deadline
+        ? (data.deadline.includes('T') ? data.deadline : `${data.deadline}T00:00:00Z`)
+        : undefined;
+
+      const body: Record<string, unknown> = {
+        name: data.name?.trim() || 'Untitled project',
+      };
+      if ((data as any).subject) body.subject = (data as any).subject;
+      if ((data as any).description) body.description = (data as any).description;
+      if (deadline) body.deadline = deadline;
+
       const created = await apiRequest<any>('/api/v1/projects', {
         method: 'POST',
-        body: JSON.stringify({
-          name: data.name ?? 'Untitled project',
-          subject: (data as any).subject,
-          description: (data as any).description,
-          deadline: data.deadline,
-        }),
+        body: JSON.stringify(body),
       });
       return mapBackendProjectSummary(created);
     }
@@ -172,6 +180,7 @@ export const api = {
     mockProjects.unshift(newProject);
     return delay(newProject, 500);
   },
+
 
   async updateProjectSettings(projectId: string, settings: Partial<ProjectSettings>): Promise<Partial<ProjectSettings>> {
     if (backendEnabled) {
@@ -564,7 +573,8 @@ export const api = {
   // ─── Score audit log ────────────────────────────────────────────────────────
   async getScoreAuditLog(projectId: string, memberId: string): Promise<ScoreAuditEntry[]> {
     if (backendEnabled) {
-      return apiRequest<ScoreAuditEntry[]>(`/api/v1/projects/${projectId}/scores/audit?memberId=${encodeURIComponent(memberId)}`);
+      // Backend route: GET /api/v1/projects/{projectId}/scores/{userId}/audit (path param, not query)
+      return apiRequest<ScoreAuditEntry[]>(`/api/v1/projects/${projectId}/scores/${encodeURIComponent(memberId)}/audit`);
     }
     const filtered = mockScoreAuditLog.filter((e) => e.memberId === memberId && e.projectId === projectId);
     return delay(filtered, 300);
@@ -658,8 +668,18 @@ export const api = {
         body: JSON.stringify({ email: _email, password: _password }),
       });
       setAccessToken(response.token);
-      currentSessionUser = { id: response.id, name: response.name, email: response.email, role: response.role };
-      return currentSessionUser;
+      // Pass through ALL backend fields so AuthContext can build a complete AuthUser
+      currentSessionUser = {
+        id: response.id,
+        name: response.name,
+        email: response.email,
+        role: response.role,
+        ...(response.school !== undefined && { school: response.school }),
+        ...(response.grade !== undefined && { grade: response.grade }),
+        ...(response.avatarInitials !== undefined && { avatarInitials: response.avatarInitials }),
+        ...(response.createdAt !== undefined && { createdAt: response.createdAt }),
+      } as any;
+      return currentSessionUser!;
     }
     currentSessionUser = sessionUser;
     return delay(sessionUser, 800);
@@ -669,22 +689,40 @@ export const api = {
     name: string,
     email: string,
     _password: string,
-    role: 'student' | 'teacher'
+    role: 'student' | 'teacher',
+    school?: string,
+    grade?: string
   ): Promise<SessionUser> {
     if (backendEnabled) {
+      const body: Record<string, unknown> = { name, email, password: _password, role };
+      if (school) body.school = school;
+      if (grade) body.grade = grade;
       const response = await apiRequest<{
         token: string;
         id: string;
         name: string;
         email: string;
         role: 'student' | 'teacher';
+        school?: string;
+        grade?: string;
+        avatarInitials?: string;
+        createdAt?: string;
       }>('/api/v1/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ name, email, password: _password, role }),
+        body: JSON.stringify(body),
       });
       setAccessToken(response.token);
-      currentSessionUser = { id: response.id, name: response.name, email: response.email, role: response.role };
-      return currentSessionUser;
+      currentSessionUser = {
+        id: response.id,
+        name: response.name,
+        email: response.email,
+        role: response.role,
+        ...(response.school !== undefined && { school: response.school }),
+        ...(response.grade !== undefined && { grade: response.grade }),
+        ...(response.avatarInitials !== undefined && { avatarInitials: response.avatarInitials }),
+        ...(response.createdAt !== undefined && { createdAt: response.createdAt }),
+      } as any;
+      return currentSessionUser!;
     }
     const newUser: User = {
       id: `u-${Date.now()}`,
@@ -702,22 +740,10 @@ export const api = {
   },
 
   async getCurrentUser(): Promise<SessionUser | null> {
-    if (backendEnabled) {
-      const token = localStorage.getItem('truth_layer_access_token');
-      if (token) {
-        try {
-          const user = await apiRequest<SessionUser>('/api/v1/auth/me');
-          currentSessionUser = user;
-          return user;
-        } catch {
-          // Token invalid or expired
-          setAccessToken(null);
-          currentSessionUser = null;
-        }
-      }
-      return null;
-    }
-    return delay(currentSessionUser, 100);
+    // /api/v1/auth/me does not return 'name', so we rely on the in-memory
+    // currentSessionUser (set by login/register) or the AuthContext's localStorage
+    // hydration path. No extra network call needed here.
+    return delay(currentSessionUser, 50);
   },
 
   setCurrentUser(user: SessionUser | null) {

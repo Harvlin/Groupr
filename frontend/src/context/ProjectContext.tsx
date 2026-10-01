@@ -36,27 +36,48 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const fetch = useCallback(async () => {
     if (!projectId) return;
     setIsLoading(true);
-    // TODO: replace with real API when backend is ready
-    const [p, m, t, dashboard, teacherReport, consents] = await Promise.all([
-      api.getProject(),
-      api.getMembers(),
-      api.getTasks(projectId),
-      api.getDashboard(),
-      api.getTeacherReport(),
-      api.getMemberConsents(projectId),
-    ]);
-    setProject(p);
-    setMembers(m);
-    setTasks(t);
-    // scores come from the teacher report (same underlying mock data as dashboard)
-    setScores(teacherReport.scores);
-    setDisputes(teacherReport.disputes);
-    setMemberConsents(consents);
-    // Keep dashboardData.score in sync with the teacher report scores array
-    // so DashboardPage can derive hasPendingDispute from context.disputes
-    void dashboard; // dashboard fetched for side-effect parity; data is derived from teacherReport
-    setIsLoading(false);
-  }, [projectId]);
+    try {
+      // Fetch core data that every role can access in parallel
+      const [p, m, t, consents] = await Promise.all([
+        api.getProject(),
+        api.getMembers(),
+        api.getTasks(projectId),
+        api.getMemberConsents(projectId),
+      ]);
+      setProject(p);
+      setMembers(m);
+      setTasks(t);
+      setMemberConsents(consents);
+
+      // Fetch role-specific data separately so a 403 doesn't break the whole context
+      const isTeacher = currentUser?.role === 'teacher';
+      if (isTeacher) {
+        // Teachers get the full report including all member scores
+        const teacherReport = await api.getTeacherReport().catch(() => null);
+        if (teacherReport) {
+          setScores(teacherReport.scores);
+          setDisputes(teacherReport.disputes);
+        }
+      } else {
+        // Students get their own score from the dashboard + disputes list
+        const [dashboard, projectDisputes] = await Promise.allSettled([
+          api.getDashboard(),
+          api.getDisputes(projectId),
+        ]);
+        if (dashboard.status === 'fulfilled') {
+          // Wrap the single score into an array for uniform context shape
+          setScores([dashboard.value.score]);
+        }
+        if (projectDisputes.status === 'fulfilled') {
+          setDisputes(projectDisputes.value);
+        }
+      }
+    } catch (error) {
+      console.error('[ProjectContext] Failed to load project data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [projectId, currentUser?.role]);
 
   useEffect(() => {
     fetch();
