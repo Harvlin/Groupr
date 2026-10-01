@@ -254,6 +254,12 @@ export const api = {
     return delay(sources, 300);
   },
 
+  async getGithubInstallUrl(projectId: string): Promise<string> {
+    if (!backendEnabled) return '#';
+    const response = await apiRequest<{ authorizationUrl: string }>(`/api/v1/auth/oauth/github/start?projectId=${encodeURIComponent(projectId)}`);
+    return response.authorizationUrl;
+  },
+
   async connectSource(
     _sourceType: 'google_docs' | 'github_repo',
     _externalId: string

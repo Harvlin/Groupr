@@ -31,6 +31,7 @@ export function SourcesPage() {
   const [newType, setNewType] = useState<'google_docs' | 'github_repo'>('google_docs');
   const [newId, setNewId] = useState('');
   const [syncStatus, setSyncStatus] = useState<Record<string, SyncStatus>>({});
+  const [githubConnecting, setGithubConnecting] = useState(false);
   const { addToast } = useToast();
   const { project, refetch } = useProject();
   useDocumentTitle('Connected Sources');
@@ -43,6 +44,26 @@ export function SourcesPage() {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('github') === 'connected') {
+      addToast('GitHub App connected. Select a repository to begin tracking.', 'success');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [addToast]);
+
+  const handleGithubAppConnect = async () => {
+    if (!project?.id || isFinalized) return;
+    setGithubConnecting(true);
+    try {
+      const authorizationUrl = await api.getGithubInstallUrl(project.id);
+      window.location.assign(authorizationUrl);
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to start GitHub connection.', 'error');
+      setGithubConnecting(false);
+    }
+  };
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,6 +202,17 @@ export function SourcesPage() {
               Every team member must consent before ingestion begins.
             </p>
             <form onSubmit={handleConnect} className="mt-5 space-y-4">
+              <ButtonGlassUtility
+                type="button"
+                className="w-full justify-center"
+                onClick={handleGithubAppConnect}
+                disabled={isFinalized || githubConnecting}
+              >
+                <Github size={16} />
+                <span className="ml-2">{githubConnecting ? 'Opening GitHub…' : 'Install GitHub App'}</span>
+              </ButtonGlassUtility>
+
+              <div className="border-t border-black/10 pt-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-text-primary">
                   Source type
@@ -217,6 +249,7 @@ export function SourcesPage() {
               <ButtonPrimaryHero type="submit" className="w-full" disabled={isFinalized}>
                 Connect source
               </ButtonPrimaryHero>
+              </div>
             </form>
 
             <div className="mt-5 flex items-start gap-2 rounded-control bg-surface-muted p-3">

@@ -22,12 +22,13 @@ public class SourceService {
     private final UserRepository users;
     private final ContributionEventRepository events;
     private final RawSourceEventRepository rawEvents;
+    private final GitHubInstallationRepository githubInstallations;
 
     public SourceService(ConnectedSourceRepository sources, SyncRunRepository syncRuns, MemberConsentRepository consents,
                          ProjectMemberRepository members, ProjectService projects, UserRepository users,
-                         ContributionEventRepository events, RawSourceEventRepository rawEvents) {
+                         ContributionEventRepository events, RawSourceEventRepository rawEvents, GitHubInstallationRepository githubInstallations) {
         this.sources = sources; this.syncRuns = syncRuns; this.consents = consents; this.members = members;
-        this.projects = projects; this.users = users; this.events = events; this.rawEvents = rawEvents;
+        this.projects = projects; this.users = users; this.events = events; this.rawEvents = rawEvents; this.githubInstallations = githubInstallations;
     }
 
     @Transactional(readOnly = true)
@@ -41,6 +42,7 @@ public class SourceService {
         projects.get(userId, projectId);
         var existing = sources.findByProjectIdAndProviderAndExternalId(projectId, provider, request.externalId().trim());
         var source = existing.orElseGet(() -> sources.save(new ConnectedSourceEntity(projectId, provider, request.externalId().trim(), userId)));
+        if (provider == SourceProvider.GITHUB_REPO) githubInstallations.findTopByProjectIdOrderByCreatedAtDesc(projectId).ifPresent(installation -> source.attachInstallation(installation.getInstallationId()));
         return sourceResponse(source);
     }
 

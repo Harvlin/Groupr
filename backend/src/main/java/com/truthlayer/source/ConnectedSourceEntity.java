@@ -22,6 +22,7 @@ public class ConnectedSourceEntity {
     @Column(name = "connected_at", nullable = false) private Instant connectedAt;
     @Column(name = "last_synced_at") private Instant lastSyncedAt;
     @Column(name = "sync_cursor", length = 500) private String syncCursor;
+    @Column(name = "installation_id") private Long installationId;
 
     protected ConnectedSourceEntity() {}
 
@@ -45,6 +46,8 @@ public class ConnectedSourceEntity {
     public Instant getConnectedAt() { return connectedAt; }
     public Instant getLastSyncedAt() { return lastSyncedAt; }
     public String getSyncCursor() { return syncCursor; }
+    public Long getInstallationId() { return installationId; }
+    public void attachInstallation(long installationId) { this.installationId = installationId; }
     public void confirmConsent() { this.consentConfirmed = true; }
     public void disconnect() { this.status = SourceStatus.DISCONNECTED; }
     public void startSync() { this.status = SourceStatus.SYNCING; }

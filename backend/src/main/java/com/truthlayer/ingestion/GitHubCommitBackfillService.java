@@ -20,10 +20,11 @@ public class GitHubCommitBackfillService {
     private final ContributionEventRepository events;
     private final ObjectMapper objectMapper;
     private final RestClient github;
+    private final GitHubAppTokenService appTokens;
 
-    public GitHubCommitBackfillService(ConnectedSourceRepository sources, ContributionEventRepository events, ObjectMapper objectMapper, RestClient.Builder builder) {
+    public GitHubCommitBackfillService(ConnectedSourceRepository sources, ContributionEventRepository events, ObjectMapper objectMapper, RestClient.Builder builder, GitHubAppTokenService appTokens) {
         this.sources = sources; this.events = events; this.objectMapper = objectMapper;
-        this.github = builder.baseUrl("https://api.github.com").defaultHeader("Accept", "application/vnd.github+json").build();
+        this.github = builder.baseUrl("https://api.github.com").defaultHeader("Accept", "application/vnd.github+json").build(); this.appTokens = appTokens;
     }
 
     @Transactional
@@ -53,7 +54,9 @@ public class GitHubCommitBackfillService {
 
     private JsonNode fetchCommit(ConnectedSourceEntity source, String sha) {
         try {
-            return github.get().uri("/repos/{repo}/commits/{sha}", repositoryPath(source.getExternalId()), sha).retrieve().body(JsonNode.class);
+            var request = github.get().uri("/repos/{repo}/commits/{sha}", repositoryPath(source.getExternalId()), sha);
+            if (source.getInstallationId() != null) request = request.header("Authorization", "Bearer " + appTokens.createInstallationToken(source.getInstallationId()).value());
+            return request.retrieve().body(JsonNode.class);
         } catch (RuntimeException exception) {
             return null;
         }
