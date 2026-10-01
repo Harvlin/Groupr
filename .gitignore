@@ -118,3 +118,9 @@ build/
 application-secret.properties
 application-secret.yml
 application-secret.yaml
+
+
+.BACKEND_BUILD_PLAN.md
+.DESIGN_SYSTEM.md
+truth-layer-antigravity-phases-en.md
+wise-design.md

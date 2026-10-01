@@ -75,6 +75,20 @@ function mapBackendScore(value: any): ContributionScore {
   return { ...value, confidenceLevel: String(value.confidenceLevel).toLowerCase() as ContributionScore['confidenceLevel'] };
 }
 
+function mapBackendProjectSummary(item: any): ProjectSummary {
+  return {
+    id: item.id,
+    name: item.name,
+    subject: item.subject,
+    deadline: item.deadline,
+    status: String(item.status).toLowerCase() as ProjectSummary['status'],
+    memberCount: item.memberCount ?? 0,
+    sourceCount: item.sourceCount ?? 0,
+    userContributionShare: item.userContributionShare ?? 0,
+    members: (item.members ?? []).map((m: any) => mapBackendMember(m, item.id)),
+  };
+}
+
 let currentSessionUser: SessionUser | null = null;
 
 export const api = {
@@ -125,50 +139,29 @@ export const api = {
 
   async getProjects(): Promise<ProjectSummary[]> {
     if (backendEnabled) {
-      const projects = await apiRequest<Array<{
-        id: string;
-        name: string;
-        subject?: string;
-        deadline?: string;
-        status: ProjectSummary['status'];
-        memberCount: number;
-        sourceCount: number;
-      }>>('/api/v1/projects');
-      return projects.map((item) => ({
-        ...item,
-        status: item.status.toLowerCase() as ProjectSummary['status'],
-        userContributionShare: 0,
-        members: [],
-      }));
+      const projects = await apiRequest<any[]>('/api/v1/projects');
+      return projects.map(mapBackendProjectSummary);
     }
     return delay(mockProjects, 400);
   },
 
   async createProject(data: Partial<ProjectSummary>): Promise<ProjectSummary> {
     if (backendEnabled) {
-      const project = await apiRequest<{
-        id: string;
-        name: string;
-        subject?: string;
-        deadline?: string;
-        status: ProjectSummary['status'];
-        memberCount: number;
-        sourceCount: number;
-      }>('/api/v1/projects', {
+      const created = await apiRequest<any>('/api/v1/projects', {
         method: 'POST',
-        body: JSON.stringify({ name: data.name ?? 'Untitled project', subject: data.subject, deadline: data.deadline }),
+        body: JSON.stringify({
+          name: data.name ?? 'Untitled project',
+          subject: (data as any).subject,
+          description: (data as any).description,
+          deadline: data.deadline,
+        }),
       });
-      return {
-        ...project,
-        status: project.status.toLowerCase() as ProjectSummary['status'],
-        userContributionShare: 0,
-        members: [],
-      };
+      return mapBackendProjectSummary(created);
     }
     const newProject: ProjectSummary = {
       id: `project${Date.now()}`,
       name: data.name ?? 'Untitled project',
-      subject: data.subject,
+      subject: (data as any).subject,
       deadline: data.deadline,
       status: 'active',
       memberCount: 1,
@@ -180,16 +173,29 @@ export const api = {
     return delay(newProject, 500);
   },
 
-  async updateProjectSettings(_projectId: string, settings: Partial<ProjectSettings>): Promise<Partial<ProjectSettings>> {
+  async updateProjectSettings(projectId: string, settings: Partial<ProjectSettings>): Promise<Partial<ProjectSettings>> {
+    if (backendEnabled) {
+      return apiRequest<Partial<ProjectSettings>>(`/api/v1/projects/${projectId}/settings`, {
+        method: 'PATCH',
+        body: JSON.stringify(settings),
+      });
+    }
     return delay(settings, 400);
   },
 
   async archiveProject(projectId: string): Promise<{ projectId: string; status: string }> {
+    if (backendEnabled) {
+      await apiRequest(`/api/v1/projects/${projectId}/archive`, { method: 'POST' });
+      return { projectId, status: 'archived' };
+    }
     return delay({ projectId, status: 'archived' }, 300);
   },
 
   async finaliseProject(projectId: string): Promise<{ projectId: string; status: string }> {
-    // Mutate the mock arrays so subsequent reads from api.getProjects() / api.getProject() reflect the new status
+    if (backendEnabled) {
+      await apiRequest(`/api/v1/projects/${projectId}/finalize`, { method: 'POST' });
+      return { projectId, status: 'finalised' };
+    }
     const summary = mockProjects.find((p) => p.id === projectId);
     if (summary) summary.status = 'finalised';
     if (project.id === projectId) (project as { status: string }).status = 'finalised';
@@ -197,6 +203,10 @@ export const api = {
   },
 
   async getProjectByCode(code: string): Promise<ProjectSummary> {
+    if (backendEnabled) {
+      const result = await apiRequest<any>(`/api/v1/invitations/${encodeURIComponent(code)}/accept`, { method: 'POST' });
+      return mapBackendProjectSummary(result);
+    }
     const found = mockProjects.find((p) => (p as ProjectSummary & { projectCode?: string }).projectCode === code);
     if (!found) throw new Error('Project not found');
     return delay(found, 500);
@@ -212,14 +222,32 @@ export const api = {
   },
 
   async removeMember(projectId: string, memberId: string): Promise<{ projectId: string; memberId: string; removed: boolean }> {
+    if (backendEnabled) {
+      await apiRequest(`/api/v1/projects/${projectId}/members/${memberId}`, { method: 'DELETE' });
+      return { projectId, memberId, removed: true };
+    }
     return delay({ projectId, memberId, removed: true }, 400);
   },
 
-  async updateMemberRole(_projectId: string, memberId: string, role: 'member' | 'leader'): Promise<{ memberId: string; role: string }> {
+  async updateMemberRole(projectId: string, memberId: string, role: 'member' | 'leader'): Promise<{ memberId: string; role: string }> {
+    if (backendEnabled) {
+      await apiRequest(`/api/v1/projects/${projectId}/members/${memberId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role: role.toUpperCase() }),
+      });
+      return { memberId, role };
+    }
     return delay({ memberId, role }, 300);
   },
 
   async transferOwnership(projectId: string, newOwnerId: string): Promise<{ projectId: string; newOwnerId: string }> {
+    if (backendEnabled) {
+      await apiRequest(`/api/v1/projects/${projectId}/members/${newOwnerId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role: 'LEADER' }),
+      });
+      return { projectId, newOwnerId };
+    }
     return delay({ projectId, newOwnerId }, 400);
   },
 
@@ -310,35 +338,68 @@ export const api = {
   },
 
   // ─── Invitations ────────────────────────────────────────────────────────────
-  async sendInvitation(_projectId: string, email: string, role: 'member' | 'leader'): Promise<{ id: string; token: string; email: string; role: string; status: string }> {
+  async sendInvitation(projectId: string, email: string, role: 'member' | 'leader'): Promise<{ id: string; token: string; email: string; role: string; status: string }> {
+    if (backendEnabled) {
+      const response = await apiRequest<{ id: string; token: string; email: string; role: string; status: string }>(
+        `/api/v1/projects/${projectId}/invitations`,
+        { method: 'POST', body: JSON.stringify({ email, role: role.toUpperCase() }) }
+      );
+      return { ...response, role: String(response.role).toLowerCase(), status: String(response.status).toLowerCase() };
+    }
     return delay({ id: `inv${Date.now()}`, token: `token-${Date.now()}`, email, role, status: 'pending' }, 600);
   },
 
   async getInvitationByToken(token: string): Promise<Invitation> {
+    if (backendEnabled) {
+      const response = await apiRequest<any>(`/api/v1/invitations/${token}`);
+      return {
+        id: response.id,
+        token,
+        projectId: response.projectId,
+        projectName: response.projectName ?? '',
+        invitedByName: response.invitedByName ?? '',
+        invitedByAvatarInitials: response.invitedByAvatarInitials ?? '',
+        invitedEmail: response.email,
+        role: String(response.role).toLowerCase() as Invitation['role'],
+        status: String(response.status).toLowerCase() as Invitation['status'],
+        expiresAt: response.expiresAt,
+        createdAt: response.createdAt ?? new Date().toISOString(),
+      };
+    }
     if (token === 'already_member') throw { reason: 'already_member' };
     if (token === 'token_used') throw { reason: 'token_used' };
     if (token === 'project_full') throw { reason: 'project_full' };
     if (token === 'expired') throw { reason: 'expired' };
-
     const found = mockInvitations.find((i) => i.token === token);
     if (!found) throw { reason: 'expired' };
     return delay(found, 400);
   },
 
   async acceptInvitation(token: string): Promise<{ token: string; status: string }> {
+    if (backendEnabled) {
+      await apiRequest(`/api/v1/invitations/${token}/accept`, { method: 'POST' });
+      return { token, status: 'accepted' };
+    }
     if (token === 'already_member') throw { reason: 'already_member' };
     if (token === 'token_used') throw { reason: 'token_used' };
     if (token === 'project_full') throw { reason: 'project_full' };
     if (token === 'expired') throw { reason: 'expired' };
-
     return delay({ token, status: 'accepted' }, 700);
   },
 
   async declineInvitation(token: string): Promise<{ token: string; status: string }> {
+    if (backendEnabled) {
+      await apiRequest(`/api/v1/invitations/${token}/decline`, { method: 'POST' });
+      return { token, status: 'declined' };
+    }
     return delay({ token, status: 'declined' }, 400);
   },
 
   async joinByCode(code: string): Promise<ProjectSummary> {
+    if (backendEnabled) {
+      const result = await apiRequest<any>(`/api/v1/invitations/${encodeURIComponent(code)}/accept`, { method: 'POST' });
+      return mapBackendProjectSummary(result);
+    }
     const found = mockProjects.find((p) => (p as ProjectSummary & { projectCode?: string }).projectCode === code);
     if (!found) throw new Error('Invalid project code');
     return delay(found, 600);
@@ -370,7 +431,15 @@ export const api = {
   },
 
   // ─── Coach Mode ─────────────────────────────────────────────────────────────
-  async getCoachSuggestions(_projectId: string): Promise<CoachSuggestion[]> {
+  async getCoachSuggestions(projectId: string): Promise<CoachSuggestion[]> {
+    if (backendEnabled) {
+      try {
+        const response = await apiRequest<CoachSuggestion[]>(`/api/v1/projects/${projectId}/coach-suggestions`);
+        return response;
+      } catch {
+        return [];
+      }
+    }
     return delay(mockCoachSuggestionsExtended, 300);
   },
 
@@ -456,7 +525,6 @@ export const api = {
   // ─── Disputes ───────────────────────────────────────────────────────────────
   async getDisputes(_projectId: string): Promise<Dispute[]> {
     if (backendEnabled) return apiRequest<Dispute[]>(`/api/v1/projects/${_projectId}/disputes`);
-    // Returns from the same underlying array as getTeacherReport, ensuring consistency
     return delay(disputes, 300);
   },
 
@@ -495,21 +563,45 @@ export const api = {
 
   // ─── Score audit log ────────────────────────────────────────────────────────
   async getScoreAuditLog(projectId: string, memberId: string): Promise<ScoreAuditEntry[]> {
+    if (backendEnabled) {
+      return apiRequest<ScoreAuditEntry[]>(`/api/v1/projects/${projectId}/scores/audit?memberId=${encodeURIComponent(memberId)}`);
+    }
     const filtered = mockScoreAuditLog.filter((e) => e.memberId === memberId && e.projectId === projectId);
     return delay(filtered, 300);
   },
 
   // ─── Contribution history ────────────────────────────────────────────────────
-  async getContributionHistory(_userId: string): Promise<ContributionHistoryEntry[]> {
+  async getContributionHistory(userId: string): Promise<ContributionHistoryEntry[]> {
+    if (backendEnabled) {
+      return apiRequest<ContributionHistoryEntry[]>(`/api/v1/users/${encodeURIComponent(userId)}/contribution-history`);
+    }
     return delay(mockContributionHistory, 400);
   },
 
   // ─── Teacher ────────────────────────────────────────────────────────────────
   async getTeacherProjects(): Promise<TeacherProjectSummary[]> {
+    if (backendEnabled) {
+      const response = await apiRequest<any[]>('/api/v1/teacher/projects');
+      return response.map((item) => ({
+        projectId: item.projectId ?? item.id,
+        projectName: item.projectName ?? item.name,
+        subject: item.subject,
+        deadline: item.deadline,
+        teamSize: item.teamSize ?? item.memberCount ?? 0,
+        status: String(item.status).toLowerCase() as TeacherProjectSummary['status'],
+        hasImbalance: item.hasImbalance ?? false,
+        hasOpenDisputes: item.hasOpenDisputes ?? false,
+        hasCollusionFlags: item.hasCollusionFlags ?? false,
+        pendingConsentCount: item.pendingConsentCount ?? 0,
+      }));
+    }
     return delay(mockTeacherProjects, 400);
   },
 
   async getCollusionFlags(_projectId: string): Promise<CollusionFlag[]> {
+    if (backendEnabled) {
+      return apiRequest<CollusionFlag[]>(`/api/v1/projects/${_projectId}/collusion-flags`);
+    }
     return delay(mockCollusionFlags, 300);
   },
 
@@ -557,6 +649,10 @@ export const api = {
         name: string;
         email: string;
         role: 'student' | 'teacher';
+        school?: string;
+        grade?: string;
+        avatarInitials?: string;
+        createdAt?: string;
       }>('/api/v1/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email: _email, password: _password }),
@@ -606,6 +702,21 @@ export const api = {
   },
 
   async getCurrentUser(): Promise<SessionUser | null> {
+    if (backendEnabled) {
+      const token = localStorage.getItem('truth_layer_access_token');
+      if (token) {
+        try {
+          const user = await apiRequest<SessionUser>('/api/v1/auth/me');
+          currentSessionUser = user;
+          return user;
+        } catch {
+          // Token invalid or expired
+          setAccessToken(null);
+          currentSessionUser = null;
+        }
+      }
+      return null;
+    }
     return delay(currentSessionUser, 100);
   },
 
@@ -614,4 +725,3 @@ export const api = {
     if (!user) setAccessToken(null);
   },
 };
-
