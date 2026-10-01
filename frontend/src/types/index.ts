@@ -228,8 +228,8 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
-  school: string;
-  grade: string;
+  school: string | null;
+  grade: string | null;
   avatarInitials: string;
   createdAt: string;
 }

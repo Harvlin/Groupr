@@ -184,10 +184,17 @@ export const api = {
 
   async updateProjectSettings(projectId: string, settings: Partial<ProjectSettings>): Promise<Partial<ProjectSettings>> {
     if (backendEnabled) {
-      return apiRequest<Partial<ProjectSettings>>(`/api/v1/projects/${projectId}/settings`, {
-        method: 'PATCH',
-        body: JSON.stringify(settings),
-      });
+      // Backend uses PATCH /projects/{id}, not a separate /settings endpoint
+      const deadline = settings.deadline
+        ? (settings.deadline.includes('T') ? settings.deadline : `${settings.deadline}T00:00:00Z`)
+        : undefined;
+      const body: Record<string, unknown> = {};
+      if (settings.name) body.name = settings.name;
+      if (settings.subject !== undefined) body.subject = settings.subject;
+      if (settings.description !== undefined) body.description = settings.description;
+      if (deadline) body.deadline = deadline;
+      await apiRequest(`/api/v1/projects/${projectId}`, { method: 'PATCH', body: JSON.stringify(body) });
+      return settings;
     }
     return delay(settings, 400);
   },
@@ -440,26 +447,67 @@ export const api = {
   },
 
   // ─── Coach Mode ─────────────────────────────────────────────────────────────
-  async getCoachSuggestions(projectId: string): Promise<CoachSuggestion[]> {
-    if (backendEnabled) {
-      try {
-        const response = await apiRequest<CoachSuggestion[]>(`/api/v1/projects/${projectId}/coach-suggestions`);
-        return response;
-      } catch {
-        return [];
-      }
-    }
+  async getCoachSuggestions(_projectId: string): Promise<CoachSuggestion[]> {
+    // Backend doesn't implement this yet. Fallback to mock data.
     return delay(mockCoachSuggestionsExtended, 300);
   },
 
   // ─── Tasks ──────────────────────────────────────────────────────────────────
   async getTasks(_projectId: string): Promise<ProjectTask[]> {
-    if (backendEnabled) return apiRequest<ProjectTask[]>(`/api/v1/projects/${_projectId}/tasks`);
+    if (backendEnabled) {
+      const list = await apiRequest<any[]>(`/api/v1/projects/${_projectId}/tasks`);
+      // Backend doesn't return assignedToMemberName; fetch members to resolve it
+      let memberMap: Record<string, string> = {};
+      try {
+        const memberList = await apiRequest<any[]>(`/api/v1/projects/${_projectId}/members`);
+        memberList.forEach((m: any) => { memberMap[m.id] = m.name; });
+      } catch { /* non-critical, fall through */ }
+      return list.map((t: any): ProjectTask => ({
+        id: t.id,
+        projectId: t.projectId,
+        title: t.title,
+        assignedToMemberId: t.assignedToMemberId,
+        assignedToMemberName: memberMap[t.assignedToMemberId] ?? 'Unassigned',
+        status: (t.status as string).toLowerCase() as TaskStatus,
+        createdByMemberId: t.createdByMemberId,
+        createdAt: t.createdAt,
+        dueDate: t.dueDate ? (t.dueDate as string).split('T')[0] : undefined,
+        fromCoachSuggestion: t.fromCoachSuggestion ?? false,
+      }));
+    }
     return delay(mockTasks, 300);
   },
 
   async createTask(task: Omit<ProjectTask, 'id' | 'createdAt'>): Promise<ProjectTask> {
-    if (backendEnabled) return apiRequest<ProjectTask>(`/api/v1/projects/${task.projectId}/tasks`, { method: 'POST', body: JSON.stringify({ title: task.title, assignedToMemberId: task.assignedToMemberId, dueDate: task.dueDate, fromCoachSuggestion: task.fromCoachSuggestion }) });
+    if (backendEnabled) {
+      // Backend TaskDtos.CreateRequest: title, description, assignedToMemberId, dueDate (Instant), fromCoachSuggestion (boolean)
+      // Do NOT send assignedToMemberName — that's a frontend-only computed field
+      const dueDate = task.dueDate
+        ? (task.dueDate.includes('T') ? task.dueDate : `${task.dueDate}T00:00:00Z`)
+        : null;
+      const body: Record<string, unknown> = {
+        title: task.title,
+        assignedToMemberId: task.assignedToMemberId || null,
+        fromCoachSuggestion: task.fromCoachSuggestion ?? false,
+      };
+      if (dueDate) body.dueDate = dueDate;
+      const created = await apiRequest<any>(`/api/v1/projects/${task.projectId}/tasks`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      return {
+        id: created.id,
+        projectId: created.projectId,
+        title: created.title,
+        assignedToMemberId: created.assignedToMemberId,
+        assignedToMemberName: task.assignedToMemberName,
+        status: (created.status as string).toLowerCase() as TaskStatus,
+        createdByMemberId: created.createdByMemberId,
+        createdAt: created.createdAt,
+        dueDate: created.dueDate ? (created.dueDate as string).split('T')[0] : undefined,
+        fromCoachSuggestion: created.fromCoachSuggestion ?? false,
+      };
+    }
     const newTask: ProjectTask = { id: `task${Date.now()}`, createdAt: new Date().toISOString(), ...task };
     mockTasks.unshift(newTask);
     return delay(newTask, 400);
@@ -581,23 +629,22 @@ export const api = {
   },
 
   // ─── Contribution history ────────────────────────────────────────────────────
-  async getContributionHistory(userId: string): Promise<ContributionHistoryEntry[]> {
-    if (backendEnabled) {
-      return apiRequest<ContributionHistoryEntry[]>(`/api/v1/users/${encodeURIComponent(userId)}/contribution-history`);
-    }
+  async getContributionHistory(_userId: string): Promise<ContributionHistoryEntry[]> {
+    // Backend doesn't implement this yet. Fallback to mock data.
     return delay(mockContributionHistory, 400);
   },
 
   // ─── Teacher ────────────────────────────────────────────────────────────────
   async getTeacherProjects(): Promise<TeacherProjectSummary[]> {
     if (backendEnabled) {
-      const response = await apiRequest<any[]>('/api/v1/teacher/projects');
+      // No dedicated /teacher/projects route — use /projects which returns all projects the user is in
+      const response = await apiRequest<any[]>('/api/v1/projects');
       return response.map((item) => ({
-        projectId: item.projectId ?? item.id,
-        projectName: item.projectName ?? item.name,
-        subject: item.subject,
-        deadline: item.deadline,
-        teamSize: item.teamSize ?? item.memberCount ?? 0,
+        projectId: item.id,
+        projectName: item.name,
+        subject: item.subject ?? '',
+        deadline: item.deadline ?? '',
+        teamSize: item.memberCount ?? 0,
         status: String(item.status).toLowerCase() as TeacherProjectSummary['status'],
         hasImbalance: item.hasImbalance ?? false,
         hasOpenDisputes: item.hasOpenDisputes ?? false,

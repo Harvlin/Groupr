@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { api } from '@/services/api';
 import { useProject } from '@/hooks/useProject';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { ButtonPrimaryHero, ButtonGlassUtility, ButtonNavCta } from '@/components/ui';
 import { Skeleton } from '@/components/Skeleton';
@@ -33,13 +34,14 @@ function InputField({ label, id, ...props }: React.InputHTMLAttributes<HTMLInput
 export default function ProjectSettingsPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { project, members, memberConsents, isLoading: isProjectLoading } = useProject();
+  const { currentUser } = useAuth();
   const { addToast } = useToast();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
     name: project?.name ?? '',
     subject: (project as ProjectExtended | null)?.subject ?? '',
-    deadline: project?.deadline ?? '',
+    deadline: project?.deadline ? project.deadline.split('T')[0] : '',
     description: (project as ProjectExtended | null)?.description ?? '',
   });
   const [dirty, setDirty] = useState(false);
@@ -60,7 +62,7 @@ export default function ProjectSettingsPage() {
       setForm({
         name: project.name,
         subject: (project as ProjectExtended).subject ?? '',
-        deadline: project.deadline ?? '',
+        deadline: project.deadline ? project.deadline.split('T')[0] : '',
         description: (project as ProjectExtended).description ?? '',
       });
     }
@@ -138,13 +140,13 @@ export default function ProjectSettingsPage() {
       {/* Section 2: Members */}
       <Section title="Team members" id="members">
         <div className="mb-4 divide-y divide-border-hairline/20 rounded-card border border-border-hairline bg-white overflow-hidden">
-          {members.map((member, idx) => {
-            const isYou = idx === 0;
+          {members.map((member) => {
+            const isYou = member.userId === currentUser?.id;
             return (
               <div key={member.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-lime font-display text-sm font-black text-text-primary">
-                    {member.user.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()}
+                    {(member.user.name ?? 'U').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()}
                   </div>
                   <div>
                     <span className="text-sm font-medium text-text-primary">{member.user.name}</span>

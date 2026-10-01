@@ -95,9 +95,20 @@ export default function ProfilePage() {
   const [downloading, setDownloading] = useState(false);
   const [profile, setProfile] = useState({
     name: currentUser?.name ?? '',
-    school: 'SMA Negeri 1 Jakarta',
-    grade: 'Grade 12',
+    school: currentUser?.school ?? '',
+    grade: currentUser?.grade ?? '',
   });
+
+  // Sync profile state when currentUser hydrates from localStorage after refresh
+  useEffect(() => {
+    if (currentUser) {
+      setProfile(prev => ({
+        name: prev.name || currentUser.name,
+        school: prev.school || currentUser.school || '',
+        grade: prev.grade || currentUser.grade || '',
+      }));
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -130,8 +141,12 @@ export default function ProfilePage() {
         </div>
         <h1 className="mt-4 font-display text-4xl text-text-primary">{profile.name || currentUser?.name}</h1>
         <div className="mt-3 flex flex-wrap justify-center gap-2">
-          <span className="rounded-hairline border border-border-hairline/40 px-2.5 py-1 text-sm text-text-secondary">{profile.school}</span>
-          <span className="rounded-hairline border border-border-hairline/40 px-2.5 py-1 text-sm text-text-secondary">{profile.grade}</span>
+          {profile.school && (
+            <span className="rounded-hairline border border-border-hairline/40 px-2.5 py-1 text-sm text-text-secondary">{profile.school}</span>
+          )}
+          {profile.grade && (
+            <span className="rounded-hairline border border-border-hairline/40 px-2.5 py-1 text-sm text-text-secondary">{profile.grade}</span>
+          )}
         </div>
         <div className="mt-3 flex justify-center">
           <span className={cn('rounded-control px-3 py-1 text-xs font-semibold', currentUser?.role === 'teacher' ? 'bg-surface-forest text-accent-lime' : 'bg-accent-positive/10 text-accent-positive')}>

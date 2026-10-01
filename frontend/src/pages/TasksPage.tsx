@@ -44,9 +44,9 @@ function TaskCard({
 
       <div className="mt-2 flex items-center gap-2">
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-lime font-display text-[10px] font-black text-text-primary">
-          {task.assignedToMemberName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()}
+          {(task.assignedToMemberName ?? 'U').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()}
         </div>
-        <span className="text-xs text-text-secondary">{task.assignedToMemberName}</span>
+        <span className="text-xs text-text-secondary">{task.assignedToMemberName ?? 'Unassigned'}</span>
       </div>
 
       {task.dueDate && (
