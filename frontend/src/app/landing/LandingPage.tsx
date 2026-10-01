@@ -17,7 +17,7 @@ export function LandingPage() {
     <div className="min-h-screen bg-white">
       <ScrollProgress />
       <Navbar />
-      <main id="main-content">
+      <main>
         <HeroSection />
         <IntegrationRail />
         <MediaBand />
