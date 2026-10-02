@@ -5,6 +5,8 @@ import com.truthlayer.membership.InvitationRepository;
 import com.truthlayer.membership.MembershipRole;
 import com.truthlayer.membership.ProjectMemberEntity;
 import com.truthlayer.membership.ProjectMemberRepository;
+import com.truthlayer.source.ConnectedSourceRepository;
+import com.truthlayer.source.SourceStatus;
 import com.truthlayer.user.UserEntity;
 import com.truthlayer.user.UserRepository;
 import java.nio.charset.StandardCharsets;
@@ -26,13 +28,15 @@ public class ProjectService {
     private final UserRepository users;
     private final InvitationRepository invitations;
     private final ProjectSettingsRepository settings;
+    private final ConnectedSourceRepository sources;
 
-    public ProjectService(ProjectRepository projects, ProjectMemberRepository members, UserRepository users, InvitationRepository invitations, ProjectSettingsRepository settings) {
+    public ProjectService(ProjectRepository projects, ProjectMemberRepository members, UserRepository users, InvitationRepository invitations, ProjectSettingsRepository settings, ConnectedSourceRepository sources) {
         this.projects = projects;
         this.members = members;
         this.users = users;
         this.invitations = invitations;
         this.settings = settings;
+        this.sources = sources;
     }
 
     @Transactional(readOnly = true)
@@ -125,7 +129,10 @@ public class ProjectService {
     public ProjectDtos.InviteResponse getInvitation(String token) {
         var invitation = invitations.findByTokenHash(hash(token)).orElseThrow(() -> new IllegalArgumentException("Invitation not found or expired"));
         if (!"PENDING".equals(invitation.getStatus()) || invitation.getExpiresAt().isBefore(Instant.now())) throw new IllegalArgumentException("Invitation is no longer valid");
-        return new ProjectDtos.InviteResponse(invitation.getId(), invitation.getProjectId(), invitation.getEmail(), invitation.getRole(), null, invitation.getExpiresAt(), invitation.getStatus().toLowerCase());
+        var project = projects.findById(invitation.getProjectId()).orElseThrow();
+        var inviterName = members.findByProjectIdAndLeftAtIsNull(invitation.getProjectId()).stream()
+            .findFirst().map(m -> users.findById(m.getUserId()).map(UserEntity::getDisplayName).orElse("Unknown")).orElse("Unknown");
+        return new ProjectDtos.InviteResponse(invitation.getId(), invitation.getProjectId(), invitation.getEmail(), invitation.getRole(), project.getName(), inviterName, null, invitation.getExpiresAt(), invitation.getStatus().toLowerCase());
     }
 
     @Transactional
@@ -142,7 +149,8 @@ public class ProjectService {
         var token = randomToken();
         var invitation = invitations.save(new InvitationEntity(projectId, email,
             request.role() == null ? MembershipRole.MEMBER : request.role(), hash(token), Instant.now().plus(7, ChronoUnit.DAYS)));
-        return new ProjectDtos.InviteResponse(invitation.getId(), projectId, email, invitation.getRole(), token, invitation.getExpiresAt(), invitation.getStatus().toLowerCase());
+        var project = projects.findById(projectId).orElseThrow();
+        return new ProjectDtos.InviteResponse(invitation.getId(), projectId, email, invitation.getRole(), project.getName(), null, token, invitation.getExpiresAt(), invitation.getStatus().toLowerCase());
     }
 
     @Transactional
@@ -179,7 +187,7 @@ public class ProjectService {
     }
 
     private ProjectDtos.ProjectResponse toResponse(ProjectEntity project) {
-        return new ProjectDtos.ProjectResponse(project.getId(), project.getName(), project.getSubject(), project.getDescription(), project.getCreatedBy(), project.getCreatedAt(), project.getDeadline(), project.getStatus(), members.findByProjectIdAndLeftAtIsNull(project.getId()).size(), 0);
+        return new ProjectDtos.ProjectResponse(project.getId(), project.getName(), project.getSubject(), project.getDescription(), project.getCreatedBy(), project.getCreatedAt(), project.getDeadline(), project.getStatus(), members.findByProjectIdAndLeftAtIsNull(project.getId()).size(), sources.findByProjectIdAndStatusNot(project.getId(), SourceStatus.DISCONNECTED).size());
     }
 
     private ProjectSettingsDtos.Response settingsResponse(ProjectSettingsEntity value) {

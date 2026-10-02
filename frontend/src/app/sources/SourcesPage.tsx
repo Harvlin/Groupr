@@ -40,11 +40,12 @@ export function SourcesPage() {
   const isFinalized = project?.status === 'completed';
 
   useEffect(() => {
-    api.getSources().then((result) => {
+    if (!project?.id) return;
+    api.getSources(project.id).then((result) => {
       setSources(result);
       setLoading(false);
     });
-  }, []);
+  }, [project?.id]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -87,15 +88,23 @@ export function SourcesPage() {
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isFinalized || !newId.trim()) return;
-    const created = await api.connectSource(newType, newId.trim());
-    setSources((prev) => [...prev, created]);
-    setNewId('');
-    refetch(); // update ProjectContext so SetupGuideCard reflects new sourceCount (fix 4.9)
-    addToast(
-      `Connected ${newType === 'google_docs' ? 'Google Doc' : 'GitHub repo'}. Waiting for team consent.`,
-      'success'
-    );
+    if (isFinalized || !newId.trim()) {
+      addToast('Please enter a Document ID or repository name.', 'error');
+      return;
+    }
+    try {
+      if (!project?.id) return;
+      const created = await api.connectSource(project.id, newType, newId.trim());
+      setSources((prev) => [...prev, created]);
+      setNewId('');
+      refetch(); // update ProjectContext so SetupGuideCard reflects new sourceCount (fix 4.9)
+      addToast(
+        `Connected ${newType === 'google_docs' ? 'Google Doc' : 'GitHub repo'}. Waiting for team consent.`,
+        'success'
+      );
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Could not connect source. Please try again.', 'error');
+    }
   };
 
   const handleSync = async (sourceId: string) => {

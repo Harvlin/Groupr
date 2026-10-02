@@ -95,11 +95,12 @@ function TaskCard({
 interface AddTaskFormProps {
   members: ProjectMember[];
   projectId: string;
+  currentMemberId: string;
   onAdd: (task: ProjectTask) => void;
   onCancel: () => void;
 }
 
-function AddTaskForm({ members, projectId, onAdd, onCancel }: AddTaskFormProps) {
+function AddTaskForm({ members, projectId, currentMemberId, onAdd, onCancel }: AddTaskFormProps) {
   const [title, setTitle] = useState('');
   const [assignedTo, setAssignedTo] = useState(members[0]?.id ?? '');
   const [dueDate, setDueDate] = useState('');
@@ -108,19 +109,24 @@ function AddTaskForm({ members, projectId, onAdd, onCancel }: AddTaskFormProps) 
   const handleSubmit = async () => {
     if (!title.trim()) return;
     setLoading(true);
-    const member = members.find(m => m.id === assignedTo);
-    const newTask = await api.createTask({
-      projectId,
-      title: title.trim(),
-      assignedToMemberId: assignedTo,
-      assignedToMemberName: member?.user.name ?? 'Unknown',
-      status: 'open',
-      createdByMemberId: members[0]?.id ?? '',
-      dueDate: dueDate || undefined,
-      fromCoachSuggestion: false,
-    });
-    onAdd(newTask);
-    setLoading(false);
+    try {
+      const member = members.find(m => m.id === assignedTo);
+      const newTask = await api.createTask({
+        projectId,
+        title: title.trim(),
+        assignedToMemberId: assignedTo,
+        assignedToMemberName: member?.user.name ?? 'Unknown',
+        status: 'open',
+        createdByMemberId: currentMemberId,
+        dueDate: dueDate || undefined,
+        fromCoachSuggestion: false,
+      });
+      onAdd(newTask);
+    } catch {
+      // error silently discarded — caller can show toast if needed
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -163,7 +169,7 @@ function AddTaskForm({ members, projectId, onAdd, onCancel }: AddTaskFormProps) 
 
 export default function TasksPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { members } = useProject();
+  const { members, currentMember } = useProject();
   const { addToast } = useToast();
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -235,6 +241,7 @@ export default function TasksPage() {
                   <AddTaskForm
                     members={members}
                     projectId={projectId ?? ''}
+                    currentMemberId={currentMember?.id ?? ''}
                     onAdd={handleAdd}
                     onCancel={() => setShowForm(false)}
                   />

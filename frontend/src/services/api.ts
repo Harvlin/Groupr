@@ -51,11 +51,6 @@ function delay<T>(value: T, ms = 400): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
-function currentProjectId(): string {
-  const match = window.location.pathname.match(/\/projects\/([^/]+)/);
-  return match?.[1] ?? 'project1';
-}
-
 function mapBackendProject(value: any): Project {
   return { ...value, status: String(value.status).toLowerCase() as Project['status'] };
 }
@@ -93,9 +88,9 @@ let currentSessionUser: SessionUser | null = null;
 
 export const api = {
   // ─── Dashboard & Reports ────────────────────────────────────────────────────
-  async getDashboard(): Promise<DashboardData> {
+  async getDashboard(projectId: string): Promise<DashboardData> {
     if (backendEnabled) {
-      const response = await apiRequest<any>(`/api/v1/projects/${currentProjectId()}/dashboard`);
+      const response = await apiRequest<any>(`/api/v1/projects/${projectId}/dashboard`);
       return {
         project: mapBackendProject(response.project),
         members: response.members.map((member: any) => mapBackendMember(member, response.project.id)),
@@ -110,9 +105,9 @@ export const api = {
     return delay(dashboardData, 400);
   },
 
-  async getTeacherReport(): Promise<TeacherReportData> {
+  async getTeacherReport(projectId: string): Promise<TeacherReportData> {
     if (backendEnabled) {
-      const response = await apiRequest<any>(`/api/v1/projects/${currentProjectId()}/teacher-report`);
+      const response = await apiRequest<any>(`/api/v1/projects/${projectId}/teacher-report`);
       return {
         project: mapBackendProject(response.project),
         members: response.members.map((member: any) => mapBackendMember(member, response.project.id)),
@@ -130,9 +125,9 @@ export const api = {
   },
 
   // ─── Projects ───────────────────────────────────────────────────────────────
-  async getProject(): Promise<Project> {
+  async getProject(projectId: string): Promise<Project> {
     if (backendEnabled) {
-      return mapBackendProject(await apiRequest<any>(`/api/v1/projects/${currentProjectId()}`));
+      return mapBackendProject(await apiRequest<any>(`/api/v1/projects/${projectId}`));
     }
     return delay(project, 200);
   },
@@ -237,10 +232,10 @@ export const api = {
   },
 
   // ─── Members ────────────────────────────────────────────────────────────────
-  async getMembers(): Promise<ProjectMember[]> {
+  async getMembers(projectId: string): Promise<ProjectMember[]> {
     if (backendEnabled) {
-      const response = await apiRequest<any[]>(`/api/v1/projects/${currentProjectId()}/members`);
-      return response.map((member) => mapBackendMember(member, currentProjectId()));
+      const response = await apiRequest<any[]>(`/api/v1/projects/${projectId}/members`);
+      return response.map((member) => mapBackendMember(member, projectId));
     }
     return delay(members, 200);
   },
@@ -285,7 +280,7 @@ export const api = {
 
   async submitConsent(_projectId: string, accepted: boolean): Promise<{ accepted: boolean }> {
     if (backendEnabled) {
-      const connected = await this.getSources();
+      const connected = await this.getSources(_projectId);
       const source = connected[0];
       if (source) await apiRequest(`/api/v1/projects/${_projectId}/consents`, { method: 'POST', body: JSON.stringify({ sourceId: source.id, status: accepted ? 'accepted' : 'declined' }) });
       return { accepted };
@@ -294,7 +289,7 @@ export const api = {
   },
 
   // ─── Sources ────────────────────────────────────────────────────────────────
-  async getSources(): Promise<ConnectedSource[]> {
+  async getSources(projectId: string): Promise<ConnectedSource[]> {
     if (backendEnabled) {
       const response = await apiRequest<Array<{
         id: string;
@@ -305,7 +300,7 @@ export const api = {
         consentConfirmed: boolean;
         connectedAt: string;
         lastSyncedAt?: string;
-      }>>(`/api/v1/projects/${currentProjectId()}/sources`);
+      }>>(`/api/v1/projects/${projectId}/sources`);
       return response.map((source) => ({ ...source, sourceType: source.sourceType === 'github_repo' ? 'github_repo' : 'google_docs' }));
     }
     return delay(sources, 300);
@@ -324,12 +319,13 @@ export const api = {
   },
 
   async connectSource(
+    projectId: string,
     _sourceType: 'google_docs' | 'github_repo',
     _externalId: string
   ): Promise<ConnectedSource> {
     if (backendEnabled) {
       const endpoint = _sourceType === 'github_repo' ? 'github' : 'google';
-      const response = await apiRequest<ConnectedSource>(`/api/v1/projects/${currentProjectId()}/sources/${endpoint}`, {
+      const response = await apiRequest<ConnectedSource>(`/api/v1/projects/${projectId}/sources/${endpoint}`, {
         method: 'POST',
         body: JSON.stringify({ externalId: _externalId }),
       });
@@ -352,8 +348,8 @@ export const api = {
   async syncSource(sourceId: string): Promise<ConnectedSource | null> {
     if (backendEnabled) {
       await apiRequest(`/api/v1/sources/${sourceId}/sync`, { method: 'POST' });
-      const connectedSources = await this.getSources();
-      return connectedSources.find((source) => source.id === sourceId) ?? null;
+      // Callers should refetch sources after a sync
+      return null;
     }
     const source = sources.find((s) => s.id === sourceId);
     if (!source) return delay(null, 400);
@@ -382,7 +378,7 @@ export const api = {
         projectId: response.projectId,
         projectName: response.projectName ?? '',
         invitedByName: response.invitedByName ?? '',
-        invitedByAvatarInitials: response.invitedByAvatarInitials ?? '',
+        invitedByAvatarInitials: (response.invitedByName ?? '?').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() || '?',
         invitedEmail: response.email,
         role: String(response.role).toLowerCase() as Invitation['role'],
         status: String(response.status).toLowerCase() as Invitation['status'],
@@ -401,7 +397,14 @@ export const api = {
 
   async acceptInvitation(token: string): Promise<{ token: string; status: string }> {
     if (backendEnabled) {
-      await apiRequest(`/api/v1/invitations/${token}/accept`, { method: 'POST' });
+      try {
+        await apiRequest(`/api/v1/invitations/${token}/accept`, { method: 'POST' });
+      } catch (err: any) {
+        // Map backend SecurityException about email mismatch to a specific reason
+        const msg: string = err?.message ?? '';
+        if (msg.toLowerCase().includes('email')) throw { reason: 'email_mismatch' };
+        throw { reason: 'expired' };
+      }
       return { token, status: 'accepted' };
     }
     if (token === 'already_member') throw { reason: 'already_member' };

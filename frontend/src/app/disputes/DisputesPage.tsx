@@ -35,8 +35,8 @@ export function DisputesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isFinalized || !reason.trim()) return;
-    const newDispute = await api.submitDispute(project!.id, reason.trim());
+    if (isFinalized || !reason.trim() || !project) return;
+    const newDispute = await api.submitDispute(project.id, reason.trim());
     setLocalDisputes((prev) => [newDispute, ...(prev ?? [])]);
     setReason('');
     refetch(); // sync dispute state back to context

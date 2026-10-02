@@ -49,6 +49,7 @@ export function OnboardingPage() {
     },
   ]);
   const [finishError, setFinishError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState('');
 
@@ -116,6 +117,7 @@ export function OnboardingPage() {
 
   const handleFinish = async () => {
     setFinishError('');
+    setIsSubmitting(true);
     try {
       const created = await api.createProject({ name: projectName, deadline });
 
@@ -132,6 +134,7 @@ export function OnboardingPage() {
       navigate('/projects');
     } catch {
       setFinishError('Could not create project. Please try again.');
+      setIsSubmitting(false);
     }
   };
 
@@ -486,8 +489,9 @@ export function OnboardingPage() {
               type="button"
               className="w-full"
               onClick={handleFinish}
+              disabled={isSubmitting}
             >
-              Finish setup
+              {isSubmitting ? 'Creating project…' : 'Finish setup'}
             </ButtonPrimaryHero>
 
             <div className="text-center">

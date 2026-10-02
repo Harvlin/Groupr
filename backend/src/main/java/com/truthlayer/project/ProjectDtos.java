@@ -47,5 +47,7 @@ public final class ProjectDtos {
 
     public record InviteRequest(@jakarta.validation.constraints.Email String email, MembershipRole role) {}
 
-    public record InviteResponse(UUID id, UUID projectId, String email, MembershipRole role, String token, Instant expiresAt, String status) {}
+    public record InviteResponse(UUID id, UUID projectId, String email, MembershipRole role, String projectName, String invitedByName, String token, Instant expiresAt, String status) {}
+
+
 }

@@ -65,7 +65,7 @@ function InlineJoinInput({ primary = false, onJoin }: { primary?: boolean; onJoi
   if (!isOpen) {
     const ButtonComponent = primary ? ButtonPrimaryHero : ButtonGlassUtility;
     return (
-      <ButtonComponent onClick={() => setIsOpen(true)}>
+      <ButtonComponent onClick={() => { setIsOpen(true); setError(''); setCode(''); }}>
         Join with a code
       </ButtonComponent>
     );

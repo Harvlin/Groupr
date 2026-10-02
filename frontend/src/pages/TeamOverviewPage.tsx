@@ -93,7 +93,7 @@ export function TeamOverviewPage() {
   useEffect(() => {
     if (!projectId) return;
     setLoading(true);
-    Promise.all([api.getTeacherReport(), api.getCoachSuggestions(projectId)])
+    Promise.all([api.getTeacherReport(projectId), api.getCoachSuggestions(projectId)])
       .then(([report]) => {
         setReportData(report);
       })

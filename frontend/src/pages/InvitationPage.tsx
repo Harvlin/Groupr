@@ -18,6 +18,7 @@ function AvatarCircle({ initials, size = 48 }: { initials: string; size?: number
 }
 
 function ErrorState({ reason }: { reason: string }) {
+  const { logout } = useAuth();
   let title = 'This invitation has expired';
   let desc = 'Ask your team leader to send a new invitation.';
   
@@ -30,6 +31,9 @@ function ErrorState({ reason }: { reason: string }) {
   } else if (reason === 'project_full') {
     title = 'Project is full';
     desc = 'This project has reached the maximum number of members.';
+  } else if (reason === 'email_mismatch') {
+    title = 'Wrong account';
+    desc = 'This invitation was sent to a different email address. Sign in with the correct account or ask your team leader to re-send the invitation.';
   }
 
   return (
@@ -40,9 +44,18 @@ function ErrorState({ reason }: { reason: string }) {
       </svg>
       <h1 className="mt-4 text-xl font-semibold text-text-primary">{title}</h1>
       <p className="mt-2 text-base text-text-secondary">{desc}</p>
-      <Link to="/projects" className="mt-6 inline-flex h-10 items-center rounded-control bg-accent-lime px-6 font-semibold text-text-primary hover:bg-[#80E142]">
-        Go to your projects
-      </Link>
+      {reason === 'email_mismatch' ? (
+        <button
+          onClick={logout}
+          className="mt-6 inline-flex h-10 items-center rounded-control bg-accent-lime px-6 font-semibold text-text-primary hover:bg-[#80E142]"
+        >
+          Sign out to try another account
+        </button>
+      ) : (
+        <Link to="/projects" className="mt-6 inline-flex h-10 items-center rounded-control bg-accent-lime px-6 font-semibold text-text-primary hover:bg-[#80E142]">
+          Go to your projects
+        </Link>
+      )}
     </div>
   );
 }

@@ -33,14 +33,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [memberConsents, setMemberConsents] = useState<MemberConsent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetch = useCallback(async () => {
+  const loadProjectData = useCallback(async () => {
     if (!projectId) return;
     setIsLoading(true);
     try {
       // Fetch core data that every role can access in parallel
       const [p, m, t, consents] = await Promise.all([
-        api.getProject(),
-        api.getMembers(),
+        api.getProject(projectId),
+        api.getMembers(projectId),
         api.getTasks(projectId),
         api.getMemberConsents(projectId),
       ]);
@@ -53,7 +53,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       const isTeacher = currentUser?.role === 'teacher';
       if (isTeacher) {
         // Teachers get the full report including all member scores
-        const teacherReport = await api.getTeacherReport().catch(() => null);
+        const teacherReport = await api.getTeacherReport(projectId).catch(() => null);
         if (teacherReport) {
           setScores(teacherReport.scores);
           setDisputes(teacherReport.disputes);
@@ -61,7 +61,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       } else {
         // Students get their own score from the dashboard + disputes list
         const [dashboard, projectDisputes] = await Promise.allSettled([
-          api.getDashboard(),
+          api.getDashboard(projectId),
           api.getDisputes(projectId),
         ]);
         if (dashboard.status === 'fulfilled') {
@@ -77,11 +77,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [projectId, currentUser?.role]);
+  }, [projectId, currentUser?.id]);
 
   useEffect(() => {
-    fetch();
-  }, [fetch]);
+    loadProjectData();
+  }, [loadProjectData]);
 
   const currentMember = useMemo(() => {
     return members.find(m => m.userId === currentUser?.id) ?? members[0] ?? null;
@@ -104,10 +104,10 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       disputes,
       memberConsents,
       isLoading,
-      refetch: fetch,
+      refetch: loadProjectData,
       updateTask,
     }),
-    [project, members, currentMember, tasks, scores, disputes, memberConsents, isLoading, fetch, updateTask]
+    [project, members, currentMember, tasks, scores, disputes, memberConsents, isLoading, loadProjectData, updateTask]
   );
 
   return (

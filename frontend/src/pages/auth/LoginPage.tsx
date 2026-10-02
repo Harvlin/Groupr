@@ -4,10 +4,12 @@ import { Eye, EyeOff } from 'lucide-react';
 import { ButtonPrimaryHero } from '@/components/ui/DesignButtons';
 import { useAuth } from '@/hooks/useAuth';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { useToast } from '@/hooks/useToast';
 
 export function LoginPage() {
   useDocumentTitle('Sign in');
   const { login } = useAuth();
+  const { addToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -139,6 +141,7 @@ export function LoginPage() {
 
         <button
           type="button"
+          onClick={() => addToast('Google Sign-In is coming soon.', 'info')}
           className="mt-6 inline-flex w-full items-center gap-3 rounded-control bg-white px-5 py-2.5 shadow-hairline transition-colors hover:bg-surface-muted"
         >
           <svg

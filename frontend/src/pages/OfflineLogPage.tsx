@@ -6,20 +6,20 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useProject } from '@/hooks/useProject';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { ButtonPrimaryHero, CardFeatureMedia } from '@/components/ui';
+import { ButtonPrimaryHero, ButtonGlassUtility, CardFeatureMedia } from '@/components/ui';
 import { api } from '@/services/api';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { getInitials } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/Skeleton';
-import type { OfflineLog } from '@/types';
+import type { OfflineLog, CorroborationRequest } from '@/types';
 
 const OFFLINE_CATEGORIES = [
-  'Meeting',
-  'Brainstorming',
-  'Research (offline)',
-  'Writing (offline)',
-  'Design (offline)',
-  'Other',
+  { value: 'meeting', label: 'Meeting' },
+  { value: 'brainstorming', label: 'Brainstorming' },
+  { value: 'research', label: 'Research (offline)' },
+  { value: 'writing', label: 'Writing (offline)' },
+  { value: 'design', label: 'Design (offline)' },
+  { value: 'other', label: 'Other' },
 ];
 
 
@@ -51,12 +51,16 @@ export function OfflineLogPage() {
     const today = new Date();
     return today.toISOString().slice(0, 10);
   });
-  const [category, setCategory] = useState<string>(OFFLINE_CATEGORIES[0]);
+  const [category, setCategory] = useState<string>(OFFLINE_CATEGORIES[0].value);
   const [corroboratedBy, setCorroboratedBy] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+
+  const [corrobRequests, setCorrobRequests] = useState<CorroborationRequest[]>([]);
+  const [corrobLoading, setCorrobLoading] = useState(true);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
 
   const canSubmit = description.trim().length > 0 && parseFloat(hours) > 0;
 
@@ -67,6 +71,14 @@ export function OfflineLogPage() {
       .getOfflineLogs(projectId)
       .then(setLogs)
       .finally(() => setLogsLoading(false));
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    api.getCorroborationRequests(projectId)
+      .then(setCorrobRequests)
+      .catch(() => setCorrobRequests([]))
+      .finally(() => setCorrobLoading(false));
   }, [projectId]);
 
   const corroborationOptions = useMemo(() => {
@@ -125,6 +137,19 @@ export function OfflineLogPage() {
       }
     } catch {
       addToast('Could not remove entry. Please try again.', 'error');
+    }
+  };
+
+  const handleRespondCorroboration = async (requestId: string, confirmed: boolean) => {
+    setRespondingId(requestId);
+    try {
+      await api.respondCorroboration(requestId, confirmed);
+      setCorrobRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: confirmed ? 'confirmed' : 'declined' } : r));
+      addToast(confirmed ? 'Corroboration confirmed.' : 'Corroboration declined.', 'success');
+    } catch {
+      addToast('Could not respond. Please try again.', 'error');
+    } finally {
+      setRespondingId(null);
     }
   };
 
@@ -263,8 +288,8 @@ export function OfflineLogPage() {
               className="w-full rounded-control border border-black/10 bg-background px-4 py-2.5 font-body text-sm text-text-primary outline-none focus:border-accent-lime"
             >
               {OFFLINE_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
                 </option>
               ))}
             </select>
@@ -339,6 +364,47 @@ export function OfflineLogPage() {
         </form>
       </CardFeatureMedia>
 
+      {/* Pending corroboration requests */}
+      {!corrobLoading && corrobRequests.filter(r => r.status === 'pending').length > 0 && (
+        <div className="mt-10">
+          <h2 className="font-body text-base font-semibold text-text-secondary">
+            Pending corroboration requests
+          </h2>
+          <p className="mt-1 font-body text-xs text-text-tertiary">
+            A teammate is asking you to confirm they did the following work.
+          </p>
+          <div className="mt-4 rounded-card border border-accent-lime/30 bg-accent-lime/5">
+            {corrobRequests.filter(r => r.status === 'pending').map((req) => (
+              <div key={req.id} className="flex flex-col gap-3 border-b border-accent-lime/20 px-4 py-4 last:border-b-0 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="font-body text-sm font-medium text-text-primary">{req.description}</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <span className="font-body text-xs text-text-secondary">{req.hours}h</span>
+                    <span className="font-body text-xs text-text-tertiary">{String(req.date)}</span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <ButtonGlassUtility
+                    size="sm"
+                    onClick={() => handleRespondCorroboration(req.id, true)}
+                    disabled={respondingId === req.id}
+                  >
+                    {respondingId === req.id ? '…' : 'Confirm'}
+                  </ButtonGlassUtility>
+                  <button
+                    onClick={() => handleRespondCorroboration(req.id, false)}
+                    disabled={respondingId === req.id}
+                    className="font-body text-xs text-accent-warning hover:underline disabled:opacity-50"
+                  >
+                    Decline
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Logged entries */}
       <div className="mt-10">
         <h2 className="font-body text-base font-semibold text-text-secondary">
@@ -376,7 +442,7 @@ export function OfflineLogPage() {
                           {formatDate(log.date)}
                         </span>
                         <span className="rounded-control border border-black/10 px-2 py-0.5 font-body text-xs text-text-primary">
-                          {log.category}
+                          {OFFLINE_CATEGORIES.find((c) => c.value === log.category)?.label || log.category}
                         </span>
                         <span className="rounded-control bg-accent-lime/15 px-2 py-0.5 font-body text-xs font-semibold text-text-primary">
                           {log.hours}h

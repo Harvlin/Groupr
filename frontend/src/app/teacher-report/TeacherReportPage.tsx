@@ -155,11 +155,12 @@ export function TeacherReportPage() {
   };
 
   useEffect(() => {
-    api.getTeacherReport().then((result) => {
+    if (!project?.id) return;
+    api.getTeacherReport(project.id).then((result) => {
       setData(result);
       setLoading(false);
     });
-  }, []);
+  }, [project?.id]);
 
   const handleOverrideSubmit = async (scoreId: string) => {
     const percentage = parseFloat(overrideValue);
@@ -168,7 +169,8 @@ export function TeacherReportPage() {
     setOverrideUserId(null);
     setOverrideValue('');
     setOverrideReason('');
-    const refreshed = await api.getTeacherReport();
+    if (!project?.id) return;
+    const refreshed = await api.getTeacherReport(project.id);
     setData(refreshed);
     addToast('Score override applied. The report has been updated.', 'success');
   };

@@ -10,6 +10,7 @@ import {
 import { api } from '@/services/api';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Skeleton } from '@/components/Skeleton';
+import { useProject } from '@/hooks/useProject';
 import type { ContributionEvent } from '@/types';
 
 const categoryLabels = {
@@ -27,12 +28,15 @@ export function AIDisclosurePage() {
   const { addToast } = useToast();
   useDocumentTitle('AI Disclosure');
 
+  const { project } = useProject();
+
   useEffect(() => {
-    api.getTeacherReport().then((data) => {
+    if (!project?.id) return;
+    api.getTeacherReport(project.id).then((data) => {
       setEvents(data.events.filter((e) => e.possiblyAiGenerated));
       setLoading(false);
     });
-  }, []);
+  }, [project?.id]);
 
   const copyDraft = () => {
     const text = `${events.length} contribution${events.length === 1 ? '' : 's'} from this project matched heuristic patterns that sometimes correlate with AI-assisted writing.`;

@@ -33,7 +33,7 @@ function InputField({ label, id, ...props }: React.InputHTMLAttributes<HTMLInput
 
 export default function ProjectSettingsPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { project, members, memberConsents, isLoading: isProjectLoading } = useProject();
+  const { project, members, memberConsents, isLoading: isProjectLoading, refetch } = useProject();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
   const navigate = useNavigate();
@@ -81,6 +81,7 @@ export default function ProjectSettingsPage() {
     setSaving(false);
     setDirty(false);
     addToast('Settings saved.', 'success');
+    refetch(); // M2 fix: update context so sidebar gets new name
   };
 
   const handleInvite = async () => {

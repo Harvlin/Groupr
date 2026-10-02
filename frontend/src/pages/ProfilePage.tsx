@@ -16,11 +16,12 @@ interface EditProfileModalProps {
   name: string;
   school: string;
   grade: string;
+  isSaving: boolean;
   onSave: (data: { name: string; school: string; grade: string }) => void;
   onClose: () => void;
 }
 
-function EditProfileModal({ name, school, grade, onSave, onClose }: EditProfileModalProps) {
+function EditProfileModal({ name, school, grade, isSaving, onSave, onClose }: EditProfileModalProps) {
   const [form, setForm] = useState({ name, school, grade });
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(14,15,12,0.5)' }}>
@@ -48,8 +49,10 @@ function EditProfileModal({ name, school, grade, onSave, onClose }: EditProfileM
           </div>
         </div>
         <div className="mt-6 space-y-2">
-          <ButtonPrimaryHero onClick={() => onSave(form)} className="w-full">Save changes</ButtonPrimaryHero>
-          <ButtonGlassUtility onClick={onClose} className="w-full">Cancel</ButtonGlassUtility>
+          <ButtonPrimaryHero onClick={() => onSave(form)} disabled={isSaving} className="w-full">
+            {isSaving ? 'Saving…' : 'Save changes'}
+          </ButtonPrimaryHero>
+          <ButtonGlassUtility onClick={onClose} disabled={isSaving} className="w-full">Cancel</ButtonGlassUtility>
         </div>
       </div>
     </div>
@@ -93,6 +96,7 @@ export default function ProfilePage() {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({
     name: currentUser?.name ?? '',
     school: currentUser?.school ?? '',
@@ -117,10 +121,20 @@ export default function ProfilePage() {
       .finally(() => setHistoryLoading(false));
   }, [currentUser]);
 
-  const handleSave = (data: { name: string; school: string; grade: string }) => {
-    setProfile(data);
-    setEditOpen(false);
-    addToast('Profile updated.', 'success');
+  const handleSave = async (data: { name: string; school: string; grade: string }) => {
+    setSaving(true);
+    try {
+      // Persist to localStorage so changes survive page refresh
+      const updated = { ...currentUser, ...data };
+      localStorage.setItem('truth_layer_user', JSON.stringify(updated));
+      setProfile(data);
+      setEditOpen(false);
+      addToast('Profile updated.', 'success');
+    } catch {
+      addToast('Could not save profile. Please try again.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDownload = async () => {
@@ -192,6 +206,7 @@ export default function ProfilePage() {
           name={profile.name}
           school={profile.school}
           grade={profile.grade}
+          isSaving={saving}
           onSave={handleSave}
           onClose={() => setEditOpen(false)}
         />

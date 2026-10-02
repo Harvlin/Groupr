@@ -33,7 +33,8 @@ public class WorkflowService {
         if (request.corroboratedBy() != null) {
             for (UUID targetId : request.corroboratedBy()) {
                 corroborations.save(new CorroborationRequestEntity(log.getId(), userId, targetId, request.description(), request.hours(), request.date()));
-                notifications.save(new NotificationEntity(targetId, projectId, "CORROBORATION", "Project Name", "New corroboration request for offline work", "Review", "/projects/" + projectId + "/offline-log"));
+                var projectName = projects.get(userId, projectId).name();
+                notifications.save(new NotificationEntity(targetId, projectId, "CORROBORATION", projectName, "New corroboration request for offline work", "Review", "/projects/" + projectId + "/offline-log"));
             }
         }
         return offline(log);
@@ -41,9 +42,9 @@ public class WorkflowService {
     @Transactional
     public void deleteLog(UUID userId, UUID logId) { var log = logs.findById(logId).orElseThrow(() -> new IllegalArgumentException("Offline log not found")); projects.get(userId, log.getProjectId()); if (!log.getUserId().equals(userId)) throw new SecurityException("Only the log owner can delete it"); logs.delete(log); }
     @Transactional(readOnly = true)
-    public List<WorkflowDtos.CorroborationResponse> listCorroborations(UUID userId, UUID projectId) { projects.get(userId, projectId); var ids = logs.findByProjectIdOrderByDateDesc(projectId).stream().map(OfflineLogEntity::getId).toList(); return corroborations.findByLogIdIn(ids).stream().map(this::corroboration).toList(); }
+    public List<WorkflowDtos.CorroborationResponse> listCorroborations(UUID userId, UUID projectId) { projects.get(userId, projectId); var ids = logs.findByProjectIdOrderByDateDesc(projectId).stream().map(OfflineLogEntity::getId).toList(); return corroborations.findByLogIdIn(ids).stream().filter(r -> r.getTargetMemberId().equals(userId)).map(this::corroboration).toList(); }
     @Transactional
-    public WorkflowDtos.CorroborationResponse respond(UUID userId, UUID requestId, boolean confirmed) { var request = corroborations.findById(requestId).orElseThrow(() -> new IllegalArgumentException("Corroboration request not found")); if (!members.findById(request.getTargetMemberId()).map(member -> member.getUserId().equals(userId)).orElse(false)) throw new SecurityException("Only the target member can respond"); request.respond(confirmed); if (confirmed) logs.findById(request.getLogId()).ifPresent(OfflineLogEntity::corroborate); return corroboration(request); }
+    public WorkflowDtos.CorroborationResponse respond(UUID userId, UUID requestId, boolean confirmed) { var request = corroborations.findById(requestId).orElseThrow(() -> new IllegalArgumentException("Corroboration request not found")); if (!request.getTargetMemberId().equals(userId)) throw new SecurityException("Only the target member can respond"); request.respond(confirmed); if (confirmed) logs.findById(request.getLogId()).ifPresent(log -> { log.corroborate(); logs.save(log); }); corroborations.save(request); return corroboration(request); }
     @Transactional(readOnly = true)
     public List<WorkflowDtos.DisputeResponse> listDisputes(UUID userId, UUID projectId) { projects.get(userId, projectId); return disputes.findByProjectIdOrderByCreatedAtDesc(projectId).stream().map(this::dispute).toList(); }
     @Transactional

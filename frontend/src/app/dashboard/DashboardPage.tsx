@@ -90,11 +90,12 @@ export function DashboardPage() {
   };
 
   useEffect(() => {
-    api.getDashboard().then((result) => {
+    if (!project?.id) return;
+    api.getDashboard(project.id).then((result) => {
       setData(result);
       setLoading(false);
     });
-  }, []);
+  }, [project?.id]);
 
   const { maxScore, otherShare } = useMemo(() => {
     if (!data) return { maxScore: 1, otherShare: 0 };
@@ -136,21 +137,17 @@ export function DashboardPage() {
     <PageContainer width="medium" className="px-8 py-10">
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-1 items-center justify-end gap-3 md:justify-end">
-          <div className="flex items-center gap-3">
-            <ButtonGlassUtility
-              disabled={isFinalized}
-              onClick={() => !isFinalized && navigate(`/projects/${project?.id}/disputes`)}
-            >
-              <MessageSquareWarning size={16} />
-              File a dispute
-            </ButtonGlassUtility>
-            <ButtonPrimaryHero
-              disabled={isFinalized}
-              onClick={() => !isFinalized && navigate(`/projects/${project?.id}/sources`)}
-            >
-              Connect source
-            </ButtonPrimaryHero>
-          </div>
+          {!isFinalized && (
+            <div className="flex items-center gap-3">
+              <ButtonGlassUtility onClick={() => navigate(`/projects/${project?.id}/disputes`)}>
+                <MessageSquareWarning size={16} />
+                File a dispute
+              </ButtonGlassUtility>
+              <ButtonPrimaryHero onClick={() => navigate(`/projects/${project?.id}/sources`)}>
+                Connect source
+              </ButtonPrimaryHero>
+            </div>
+          )}
         </div>
       </div>
 

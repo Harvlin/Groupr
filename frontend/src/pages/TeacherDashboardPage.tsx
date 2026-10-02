@@ -14,7 +14,9 @@ type SortType = 'deadline_asc' | 'deadline_desc' | 'name' | 'issues';
 
 function ProjectRow({ project }: { project: TeacherProjectSummary }) {
   const navigate = useNavigate();
-  const daysLeft = differenceInDays(parseISO(project.deadline), new Date());
+  const hasDeadline = Boolean(project.deadline);
+  const parsedDeadline = hasDeadline ? parseISO(project.deadline) : null;
+  const daysLeft = parsedDeadline && !isNaN(parsedDeadline.valueOf()) ? differenceInDays(parsedDeadline, new Date()) : Infinity;
   const deadlineUrgent = daysLeft <= 3 && project.status === 'active';
 
   return (
@@ -28,7 +30,7 @@ function ProjectRow({ project }: { project: TeacherProjectSummary }) {
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <span className={cn('text-sm flex items-center gap-1', deadlineUrgent ? 'text-accent-warning font-medium' : 'text-text-tertiary')}>
-              Due {format(parseISO(project.deadline), 'd MMM yyyy')}
+              {parsedDeadline && !isNaN(parsedDeadline.valueOf()) ? `Due ${format(parsedDeadline, 'd MMM yyyy')}` : 'No deadline'}
               {deadlineUrgent && <AlertTriangle size={14} aria-hidden="true" />}
             </span>
             <span className="text-sm text-text-tertiary">{project.teamSize} members</span>

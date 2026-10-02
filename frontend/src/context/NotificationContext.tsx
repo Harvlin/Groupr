@@ -16,28 +16,39 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Only fetch notifications when we have a token (i.e. the user is logged in).
-    // Without this guard, the context fires an authenticated request on every
-    // page load — including the login page — which returns a 401.
+  const fetchNotifications = useCallback(async () => {
     const hasToken = !!localStorage.getItem('truth_layer_access_token');
     if (backendEnabled && !hasToken) {
       setIsLoading(false);
       return;
     }
 
-    api.getNotifications().then((data) => {
-      // Load persisted read states
-      const saved = localStorage.getItem('tl-read-notifications');
-      const readSet = saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
+    try {
+      const data = await api.getNotifications();
+      let readSet = new Set<string>();
+      try {
+        const saved = localStorage.getItem('tl-read-notifications');
+        if (saved) readSet = new Set(JSON.parse(saved));
+      } catch {
+        // Ignore localStorage errors
+      }
 
       const merged = data.map((n) =>
         readSet.has(n.id) ? { ...n, isRead: true } : n
       );
       setNotifications(merged);
+    } catch {
+      // Ignore API errors for background polling
+    } finally {
       setIsLoading(false);
-    }).catch(() => setIsLoading(false));
+    }
   }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000); // poll every 30s
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.isRead).length,
@@ -48,25 +59,33 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setNotifications((prev) => {
       const next = prev.map((n) => (n.id === id ? { ...n, isRead: true } : n));
       const readIds = next.filter((n) => n.isRead).map((n) => n.id);
-      localStorage.setItem('tl-read-notifications', JSON.stringify(readIds));
+      try {
+        localStorage.setItem('tl-read-notifications', JSON.stringify(readIds));
+      } catch {
+        // ignore
+      }
       return next;
     });
-    api.markNotificationRead(id);
+    api.markNotificationRead(id).catch(() => {});
   }, []);
 
   const markAllRead = useCallback(() => {
     setNotifications((prev) => {
       const next = prev.map((n) => ({ ...n, isRead: true }));
-      const readIds = next.filter((n) => n.isRead).map((n) => n.id);
-      localStorage.setItem('tl-read-notifications', JSON.stringify(readIds));
+      const readIds = next.map((n) => n.id);
+      try {
+        localStorage.setItem('tl-read-notifications', JSON.stringify(readIds));
+      } catch {
+        // ignore
+      }
       return next;
     });
-    api.markAllNotificationsRead();
+    api.markAllNotificationsRead().catch(() => {});
   }, []);
 
   const value = useMemo(
-    () => ({ notifications, unreadCount, markRead, markAllRead, isLoading }),
-    [notifications, unreadCount, markRead, markAllRead, isLoading]
+    () => ({ notifications, unreadCount, markRead, markAllRead, isLoading, refetch: fetchNotifications }),
+    [notifications, unreadCount, markRead, markAllRead, isLoading, fetchNotifications]
   );
 
   return (
